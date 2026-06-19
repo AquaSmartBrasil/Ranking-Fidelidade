@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaSmart — Programa de Fidelidade</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;600&display=swap');
+
+  :root {
+    --bg: #080f1a;
+    --surface: #0d1b2e;
+    --surface2: #112236;
+    --border: #1a3050;
+    --cyan: #00c9d4;
+    --cyan-dim: rgba(0,201,212,0.12);
+    --cyan-glow: rgba(0,201,212,0.25);
+    --gold: #f0c040;
+    --silver: #b0bec5;
+    --bronze: #cd7f32;
+    --platinum: #e8f4fd;
+    --diamond: #a78bfa;
+    --text: #e2eaf5;
+    --text-dim: #6a8aaa;
+    --green: #22c55e;
+    --red: #ef4444;
+    --orange: #f97316;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px; position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: var(--cyan); letter-spacing: 0.04em; }
+  .logo span { color: var(--text-dim); font-weight: 400; font-size: 13px; margin-left: 8px; font-family: 'DM Sans', sans-serif; }
+
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  .sync-status { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+  .sync-dot.on { background: var(--green); animation: pulse 2s infinite; }
+  .sync-dot.pending { background: var(--orange); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+  .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-cyan { background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan); padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .btn-cyan:hover { background: var(--cyan-glow); }
+  .btn-cyan.loading { opacity: 0.6; pointer-events: none; }
+  .btn-solid { background: var(--cyan); border: none; color: var(--bg); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
+  .btn-oauth { background: linear-gradient(135deg, #0070f3, #0050c8); border: none; color: #fff; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; margin-top: 8px; transition: opacity 0.2s; }
+  .btn-oauth:hover { opacity: 0.9; }
+  .btn-oauth-disconnect { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--red); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+  .btn-oauth-disconnect:hover { background: rgba(239,68,68,0.2); }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+
+  .collapsible { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+  .collapsible-header { padding: 14px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text-dim); user-select: none; }
+  .collapsible-header:hover { color: var(--cyan); }
+  .collapsible-body { display: none; padding: 0 20px 20px; border-top: 1px solid var(--border); }
+  .collapsible.open .collapsible-body { display: block; }
+  .collapsible-arrow { transition: transform 0.2s; }
+  .collapsible.open .collapsible-arrow { transform: rotate(180deg); }
+
+  /* OAuth panel */
+  .oauth-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-top: 16px; }
+  .oauth-status-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .oauth-status-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+  .oauth-steps { margin-top: 16px; }
+  .oauth-step { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
+  .oauth-step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .oauth-step-text { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .oauth-step-text strong { color: var(--text); }
+  .oauth-field { margin-bottom: 12px; }
+  .oauth-field label { display: block; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+  .oauth-field input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 9px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; }
+  .oauth-field input:focus { outline: none; border-color: var(--cyan); }
+  .oauth-callback-info { background: rgba(0,201,212,0.06); border: 1px solid rgba(0,201,212,0.2); border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 12px; color: var(--text-dim); }
+  .oauth-callback-info code { color: var(--cyan); font-family: monospace; font-size: 12px; background: rgba(0,201,212,0.1); padding: 1px 6px; border-radius: 4px; }
+  .token-expiry { font-size: 12px; color: var(--text-dim); margin-top: 8px; }
+  .token-expiry.warn { color: var(--orange); }
+
+  /* Config grid */
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+  .field label { display: block; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+  .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 9px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; }
+  .field input:focus { outline: none; border-color: var(--cyan); }
+
+  .rules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 16px; }
+  .rule-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .rule-icon { font-size: 26px; flex-shrink: 0; }
+  .rule-label { font-size: 13px; font-weight: 600; }
+  .rule-pts { font-size: 22px; font-weight: 700; color: var(--cyan); font-family: 'Cormorant Garamond', serif; }
+  .rule-sub { font-size: 11px; color: var(--text-dim); }
+
+  /* RANKING */
+  .ranking-section { margin-bottom: 28px; }
+  .ranking-title { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
+
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 12px; margin-bottom: 24px; height: 180px; }
+  .podium-item { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 200px; }
+  .podium-name { font-size: 13px; font-weight: 600; text-align: center; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+  .podium-pts { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .podium-block { width: 100%; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: var(--bg); }
+  .podium-1 .podium-block { height: 130px; background: linear-gradient(180deg, #f0c040, #d4a800); }
+  .podium-2 .podium-block { height: 100px; background: linear-gradient(180deg, #b0bec5, #78909c); }
+  .podium-3 .podium-block { height: 75px;  background: linear-gradient(180deg, #cd7f32, #a0522d); }
+
+  .ranking-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .ranking-row { display: grid; grid-template-columns: 48px 1fr auto auto auto; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .ranking-row:last-child { border-bottom: none; }
+  .ranking-row:hover { background: var(--surface2); }
+  .rank-pos { font-size: 18px; font-weight: 700; color: var(--text-dim); text-align: center; font-family: 'Cormorant Garamond', serif; }
+  .rank-pos.gold { color: var(--gold); }
+  .rank-pos.silver { color: var(--silver); }
+  .rank-pos.bronze-color { color: var(--bronze); }
+  .rank-name { font-weight: 600; font-size: 14px; }
+  .rank-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .rank-pts { font-size: 20px; font-weight: 700; color: var(--cyan); font-family: 'Cormorant Garamond', serif; text-align: right; }
+  .rank-pts-label { font-size: 10px; color: var(--text-dim); text-align: right; }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-bronze   { background: rgba(205,127,50,0.15);  color: var(--bronze);   border: 1px solid rgba(205,127,50,0.3); }
+  .badge-prata    { background: rgba(176,190,197,0.12); color: var(--silver);   border: 1px solid rgba(176,190,197,0.3); }
+  .badge-ouro     { background: rgba(240,192,64,0.12);  color: var(--gold);     border: 1px solid rgba(240,192,64,0.3); }
+  .badge-platinum { background: rgba(232,244,253,0.1);  color: var(--platinum); border: 1px solid rgba(232,244,253,0.3); }
+  .badge-diamond  { background: rgba(167,139,250,0.12); color: var(--diamond);  border: 1px solid rgba(167,139,250,0.3); }
+
+  .progress-wrap { width: 120px; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 3px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), #0090ff); border-radius: 2px; }
+  .progress-label { font-size: 10px; color: var(--text-dim); }
+
+  .empty-state { text-align: center; padding: 56px; color: var(--text-dim); }
+  .empty-icon { font-size: 44px; margin-bottom: 12px; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600; color: var(--cyan); line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 5px; }
+
+  .tier-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .tier-pill { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .tier-pill span { color: var(--text-dim); }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; margin-bottom: 4px; }
+  .modal-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-dim); font-size: 22px; cursor: pointer; line-height: 1; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-modal-sec { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 11px 18px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-modal-pri { flex: 1; background: var(--cyan); color: var(--bg); border: none; padding: 11px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-danger { background: var(--red) !important; color: #fff !important; flex: none !important; padding: 11px 16px !important; }
+
+  .detail-pts-header { display: flex; align-items: center; gap: 20px; background: var(--bg); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; }
+  .detail-pts-num { font-family: 'Cormorant Garamond', serif; font-size: 42px; font-weight: 600; color: var(--cyan); line-height: 1; }
+  .detail-pts-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; }
+
+  .section-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; margin-top: 16px; }
+
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+  .cat-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif; }
+  .cat-btn:hover { border-color: var(--cyan); }
+  .cat-btn.selected { border-color: var(--cyan); background: var(--cyan-dim); }
+  .cat-btn .cv { font-size: 19px; font-weight: 700; color: var(--cyan); font-family: 'Cormorant Garamond', serif; display: block; margin-bottom: 2px; }
+  .cat-btn .cl { font-size: 12px; color: var(--text); }
+
+  .qty-row { display: flex; gap: 8px; margin-top: 8px; margin-bottom: 4px; align-items: center; }
+  .qty-row label { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .qty-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; }
+  .qty-row input:focus { outline: none; border-color: var(--cyan); }
+  .qty-row button { background: var(--cyan); color: var(--bg); border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
+  .manual-row { display: flex; gap: 8px; }
+  .manual-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; }
+  .manual-row input:focus { outline: none; border-color: var(--cyan); }
+  .manual-row .btn-add { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 9px 14px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; white-space: nowrap; }
+  .manual-row .btn-add:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  .history-list { max-height: 160px; overflow-y: auto; }
+  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .history-item:last-child { border-bottom: none; }
+  .h-desc { font-size: 13px; }
+  .h-date { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  .h-pts { font-weight: 700; font-size: 14px; color: var(--green); }
+
+  .form-field { margin-bottom: 14px; }
+  .form-field label { display: block; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+  .form-field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; }
+  .form-field input:focus { outline: none; border-color: var(--cyan); }
+
+  .countdown { font-size: 11px; color: var(--text-dim); }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--cyan); color: var(--text); padding: 12px 18px; border-radius: 10px; font-size: 13px; z-index: 999; opacity: 0; transform: translateY(8px); transition: all .3s; pointer-events: none; max-width: 320px; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 720px) {
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    .podium { height: 150px; }
+    header { padding: 0 16px; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AquaSmart <span>Fidelidade</span></div>
+  <div class="header-right">
+    <div class="sync-status">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncLabel">Não conectado</span>
+    </div>
+    <span class="countdown" id="countdown"></span>
+    <button class="btn-ghost" onclick="toggle('configPanel')">⚙️ Conta Azul</button>
+    <button class="btn-ghost" onclick="toggle('rulesPanel')">📋 Pontuação</button>
+    <button class="btn-ghost" onclick="openAddClient()">+ Nova loja</button>
+    <button class="btn-cyan" id="syncBtn" onclick="syncNow()">🔄 Sincronizar</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- CONFIG PANEL — OAuth2 -->
+  <div class="collapsible" id="configPanel">
+    <div class="collapsible-header" onclick="toggle('configPanel')">
+      ⚙️ Integração com Conta Azul
+      <span class="collapsible-arrow">▾</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="oauth-box">
+        <div class="oauth-status-row">
+          <div class="oauth-status-badge" id="oauthStatusBadge">
+            <div class="sync-dot" id="oauthDot"></div>
+            <span id="oauthStatusText">Não conectado</span>
+          </div>
+          <button class="btn-oauth-disconnect" id="btnDisconnect" onclick="disconnect()" style="display:none;">Desconectar</button>
+        </div>
+
+        <div id="oauthConnectedInfo" style="display:none;">
+          <div class="token-expiry" id="tokenExpiryInfo"></div>
+          <p style="font-size:12px;color:var(--text-dim);margin-top:10px;">✅ Token ativo. A sincronização automática ocorre a cada <strong>1 hora</strong>. Clique em <strong>Sincronizar</strong> para atualizar agora.</p>
+        </div>
+
+        <div id="oauthSetupArea">
+          <div class="oauth-field" style="margin-bottom:16px;">
+            <label>⚡ Colar token direto (mais rápido)</label>
+            <input type="password" id="cfgDirectToken" placeholder="Cole aqui o access_token do Terminal">
+            <button class="btn-solid" style="margin-top:8px;width:100%;" onclick="saveDirectToken()">Salvar token</button>
+          </div>
+          <div style="text-align:center;font-size:12px;color:var(--text-dim);margin-bottom:16px;">— ou conecte via OAuth abaixo —</div>
+          <div class="oauth-steps">
+            <div class="oauth-step">
+              <div class="oauth-step-num">1</div>
+              <div class="oauth-step-text">Acesse <strong>developers.contaazul.com</strong>, crie um app e cole seu <strong>Client ID</strong> e <strong>Client Secret</strong> abaixo.</div>
+            </div>
+            <div class="oauth-step">
+              <div class="oauth-step-num">2</div>
+              <div class="oauth-step-text">Configure a <strong>Redirect URI</strong> do seu app no Conta Azul com a URL exibida abaixo.</div>
+            </div>
+            <div class="oauth-step">
+              <div class="oauth-step-num">3</div>
+              <div class="oauth-step-text">Clique em <strong>"Conectar com Conta Azul"</strong> — você será redirecionado para autorizar e voltará automaticamente.</div>
+            </div>
+          </div>
+
+          <div class="oauth-field">
+            <label>Client ID</label>
+            <input type="text" id="cfgClientId" placeholder="Cole seu Client ID aqui">
+          </div>
+          <div class="oauth-field">
+            <label>Client Secret</label>
+            <input type="password" id="cfgClientSecret" placeholder="Cole seu Client Secret aqui">
+          </div>
+
+          <div class="oauth-callback-info">
+            📌 <strong>Redirect URI para configurar no Conta Azul:</strong><br>
+            <code id="callbackUrlDisplay">—</code><br>
+            <span style="font-size:11px;margin-top:4px;display:block;">Copie esta URL e cole em "Redirect URIs" no portal do desenvolvedor Conta Azul.</span>
+          </div>
+
+          <button class="btn-oauth" onclick="startOAuth()">
+            🔑 Conectar com Conta Azul
+          </button>
+          <p style="font-size:11px;color:var(--text-dim);text-align:center;margin-top:8px;">Você será redirecionado ao Conta Azul e voltará automaticamente.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RULES -->
+  <div class="collapsible" id="rulesPanel">
+    <div class="collapsible-header" onclick="toggle('rulesPanel')">
+      📋 Como os clientes ganham pontos
+      <span class="collapsible-arrow">▾</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="rules-grid">
+        <div class="rule-card"><div class="rule-icon">🐠</div><div><div class="rule-label">Peixe</div><div class="rule-pts">10 pts</div><div class="rule-sub">por unidade</div></div></div>
+        <div class="rule-card"><div class="rule-icon">🦠</div><div><div class="rule-label">Microvida</div><div class="rule-pts">50 pts</div><div class="rule-sub">por unidade</div></div></div>
+        <div class="rule-card"><div class="rule-icon">🧊</div><div><div class="rule-label">Alimento congelado</div><div class="rule-pts">20 pts</div><div class="rule-sub">por unidade</div></div></div>
+        <div class="rule-card"><div class="rule-icon">🛒</div><div><div class="rule-label">Compra realizada</div><div class="rule-pts">1.000 pts</div><div class="rule-sub">por pedido</div></div></div>
+        <div class="rule-card"><div class="rule-icon">📸</div><div><div class="rule-label">Marcação no Instagram</div><div class="rule-pts">500 pts</div><div class="rule-sub">por publicação</div></div></div>
+        <div class="rule-card"><div class="rule-icon">⭐</div><div><div class="rule-label">Avaliação no Google</div><div class="rule-pts">500 pts</div><div class="rule-sub">por avaliação</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Lojas no programa</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-sub">cadastradas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pontos distribuídos</div>
+      <div class="stat-value" id="statPts">0</div>
+      <div class="stat-sub">total acumulado</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Líder atual</div>
+      <div class="stat-value" id="statLeader" style="font-size:16px;padding-top:8px;line-height:1.3;">—</div>
+      <div class="stat-sub" id="statLeaderPts"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Última sincronização</div>
+      <div class="stat-value" id="statSync" style="font-size:15px;padding-top:10px;">—</div>
+      <div class="stat-sub">Conta Azul</div>
+    </div>
+  </div>
+
+  <!-- TIER LEGEND -->
+  <div class="tier-row">
+    <div class="tier-pill">🥉 <span>Bronze</span> 0–499</div>
+    <div class="tier-pill">🥈 <span>Prata</span> 500–1.499</div>
+    <div class="tier-pill">🥇 <span>Ouro</span> 1.500–3.999</div>
+    <div class="tier-pill">💎 <span>Platinum</span> 4.000–9.999</div>
+    <div class="tier-pill">👑 <span>Diamond</span> 10.000+</div>
+  </div>
+
+  <!-- RANKING -->
+  <div class="ranking-section">
+    <div class="ranking-title">🏆 Ranking de clientes</div>
+    <div class="podium" id="podium"></div>
+    <div class="ranking-table" id="rankingTable">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🐠</div>
+        <div>Nenhuma loja ainda</div>
+        <div style="font-size:12px;margin-top:6px;">Adicione lojas ou conecte o Conta Azul</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL: ADD/EDIT CLIENT -->
+<div class="modal-overlay" id="clientModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('clientModal')">×</button>
+    <h2 id="modalTitle">Nova loja</h2>
+    <div class="modal-sub">Cadastre uma loja no programa de fidelidade</div>
+    <div class="form-field"><label>Nome da loja *</label><input type="text" id="fName" placeholder="Aquário do João"></div>
+    <div class="form-field"><label>Responsável</label><input type="text" id="fContact" placeholder="Nome do responsável"></div>
+    <div class="form-field"><label>WhatsApp</label><input type="text" id="fPhone" placeholder="(11) 99999-9999"></div>
+    <div class="form-field"><label>E-mail</label><input type="email" id="fEmail" placeholder="loja@email.com"></div>
+    <div class="form-field"><label>ID no Conta Azul (opcional)</label><input type="text" id="fCaId" placeholder="Preenchido automaticamente ao sincronizar"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-sec" onclick="closeModal('clientModal')">Cancelar</button>
+      <button class="btn-modal-pri" onclick="saveClient()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETAIL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" style="max-width:520px;">
+    <button class="modal-close" onclick="closeModal('detailModal')">×</button>
+    <h2 id="detailName" style="margin-bottom:2px;"></h2>
+    <div class="modal-sub" id="detailContact"></div>
+    <div class="detail-pts-header">
+      <div>
+        <div class="detail-pts-label">Pontos acumulados</div>
+        <div class="detail-pts-num" id="detailPts">0</div>
+      </div>
+      <div>
+        <div class="detail-pts-label" style="margin-bottom:4px;">Nível</div>
+        <div id="detailBadge"></div>
+      </div>
+      <div style="flex:1;">
+        <div class="progress-wrap" style="width:100%;">
+          <div class="progress-bar"><div class="progress-fill" id="detailProgress" style="width:0%"></div></div>
+          <div class="progress-label" id="detailProgressLabel"></div>
+        </div>
+      </div>
+    </div>
+    <div class="section-label">Adicionar pontos manualmente</div>
+    <div class="cat-grid">
+      <div class="cat-btn" id="catPeixe" onclick="selectCat('peixe')"><span class="cv">🐠 10 pts</span><span class="cl">Peixe</span></div>
+      <div class="cat-btn" id="catMicrovida" onclick="selectCat('microvida')"><span class="cv">🦠 50 pts</span><span class="cl">Microvida</span></div>
+      <div class="cat-btn" id="catCongelado" onclick="selectCat('congelado')"><span class="cv">🧊 20 pts</span><span class="cl">Alimento congelado</span></div>
+      <div class="cat-btn" onclick="quickPts(500,'Marcação no Instagram 📸')"><span class="cv">📸 500 pts</span><span class="cl">Instagram</span></div>
+    </div>
+    <div class="cat-btn" style="margin-top:8px;border-color:rgba(0,201,212,0.3);background:rgba(0,201,212,0.06);" onclick="quickPts(1000,'Compra realizada 🛒')">
+      <span class="cv" style="font-size:16px;">🛒 1.000 pts</span><span class="cl">Compra realizada</span>
+    </div>
+    <div class="cat-btn" style="margin-top:8px;" onclick="quickPts(500,'Avaliação no Google ⭐')">
+      <span class="cv" style="font-size:16px;">⭐ 500 pts</span><span class="cl">Avaliação no Google</span>
+    </div>
+    <div class="qty-row" id="qtyRow" style="display:none;">
+      <label id="qtyLabel">Quantidade:</label>
+      <input type="number" id="qtyInput" min="1" value="1">
+      <button onclick="applyQty()">Confirmar</button>
+    </div>
+    <div class="section-label" style="margin-top:16px;">Ajuste livre</div>
+    <div class="manual-row">
+      <input type="number" id="manualPts" placeholder="Pontos (negativo p/ remover)">
+      <input type="text" id="manualDesc" placeholder="Motivo">
+      <button class="btn-add" onclick="addManual()">Adicionar</button>
+    </div>
+    <div class="section-label" style="margin-top:16px;">Histórico</div>
+    <div class="history-list" id="historyList"></div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn-modal-sec" onclick="closeModal('detailModal')">Fechar</button>
+      <button class="btn-modal-sec" onclick="openEditFromDetail()">✏️ Editar</button>
+      <button class="btn-modal-pri btn-danger" onclick="deleteClient()">🗑 Remover</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── TIERS ─────────────────────────────────────────────────────
+const TIERS = [
+  { key:'bronze',   label:'Bronze',   icon:'🥉', min:0,     max:499      },
+  { key:'prata',    label:'Prata',    icon:'🥈', min:500,   max:1499     },
+  { key:'ouro',     label:'Ouro',     icon:'🥇', min:1500,  max:3999     },
+  { key:'platinum', label:'Platinum', icon:'💎', min:4000,  max:9999     },
+  { key:'diamond',  label:'Diamond',  icon:'👑', min:10000, max:Infinity },
+];
+const CATS = {
+  peixe:     { label:'Peixe 🐠',             pts:10 },
+  microvida: { label:'Microvida 🦠',          pts:50 },
+  congelado: { label:'Alimento congelado 🧊', pts:20 },
+};
+
+// ── STATE ─────────────────────────────────────────────────────
+let clients  = JSON.parse(localStorage.getItem('aq_clients') || '[]');
+let config   = JSON.parse(localStorage.getItem('aq_config')  || '{}');
+// config: { clientId, clientSecret, accessToken, refreshToken, expiresAt }
+let detailId = null, editingId = null, selectedCat = null;
+
+// ── OAUTH2 ────────────────────────────────────────────────────
+// Detecta a URL base real (funciona no GitHub Pages e em qualquer host)
+const CALLBACK_URL = window.location.origin + window.location.pathname;
+
+function getCallbackUrl() { return CALLBACK_URL; }
+
+function saveDirectToken() {
+  const token = document.getElementById("cfgDirectToken").value.trim();
+  if (!token) { showToast("⚠️ Cole o token primeiro"); return; }
+  config.accessToken = token;
+  config.expiresAt = Date.now() + 3600 * 1000;
+  localStorage.setItem("aq_config", JSON.stringify(config));
+  setOAuthStatus("on", "✅ Conta Azul conectado");
+  updateOAuthUI();
+  startAutoSync();
+  showToast("✅ Token salvo! Sincronizando...");
+  syncNow();
+}
+
+function startOAuth() {
+  const clientId = document.getElementById('cfgClientId').value.trim();
+  const clientSecret = document.getElementById('cfgClientSecret').value.trim();
+  if (!clientId || !clientSecret) {
+    showToast('⚠️ Preencha Client ID e Client Secret primeiro'); return;
+  }
+  config.clientId = clientId;
+  config.clientSecret = clientSecret;
+  localStorage.setItem('aq_config', JSON.stringify(config));
+
+  // Salva state anti-CSRF
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('oauth_state', state);
+
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: CALLBACK_URL,
+    scope: 'openid profile aws.cognito.signin.user.admin',
+    state: state
+  });
+  window.location.href = 'https://auth.contaazul.com/login?' + params;
+}
+
+async function handleOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code  = params.get('code');
+  const state = params.get('state');
+  const error = params.get('error');
+
+  if (error) {
+    showToast('❌ Autorização negada: ' + error);
+    window.history.replaceState({}, '', window.location.pathname);
+    return;
+  }
+  if (!code) return; // nenhum callback
+
+  const savedState = sessionStorage.getItem('oauth_state');
+  if (state !== savedState) {
+    showToast('❌ Erro de segurança: state inválido'); return;
+  }
+  sessionStorage.removeItem('oauth_state');
+
+  // Limpa a URL sem recarregar
+  window.history.replaceState({}, '', window.location.pathname);
+
+  setOAuthStatus('pending', '⏳ Obtendo token...');
+  try {
+    // Troca code por token via proxy CORS público (necessário pois o navegador bloqueia direto)
+    // Usamos allorigins como proxy CORS para a chamada POST ao Conta Azul
+    const body = new URLSearchParams({
+      grant_type:    'authorization_code',
+      code:          code,
+      redirect_uri:  CALLBACK_URL,
+      client_id:     config.clientId,
+      client_secret: config.clientSecret,
+    });
+
+    const tokenUrl = 'https://aquasmart-api.cassio-58a.workers.dev';
+    const res = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error('Erro ' + res.status + ': ' + err);
+    }
+    const data = await res.json();
+    config.accessToken  = data.access_token;
+    config.refreshToken = data.refresh_token;
+    config.expiresAt    = Date.now() + (data.expires_in || 3600) * 1000;
+    localStorage.setItem('aq_config', JSON.stringify(config));
+
+    setOAuthStatus('on', '✅ Conta Azul conectado');
+    showToast('🎉 Conta Azul conectado com sucesso!');
+    updateOAuthUI();
+    startAutoSync();
+    syncNow();
+  } catch(e) {
+    setOAuthStatus('off', '❌ Falha na autenticação');
+    showToast('❌ ' + e.message);
+  }
+}
+
+async function refreshAccessToken() {
+  if (!config.refreshToken) return false;
+  try {
+    const body = new URLSearchParams({
+      grant_type:    'refresh_token',
+      refresh_token: config.refreshToken,
+      client_id:     config.clientId,
+      client_secret: config.clientSecret,
+    });
+    const tokenUrl = 'https://aquasmart-api.cassio-58a.workers.dev';
+    const res = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    config.accessToken  = data.access_token;
+    if (data.refresh_token) config.refreshToken = data.refresh_token;
+    config.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+    localStorage.setItem('aq_config', JSON.stringify(config));
+    return true;
+  } catch { return false; }
+}
+
+async function getValidToken() {
+  if (!config.accessToken) return null;
+  // Renova se expira em menos de 5 minutos
+  if (config.expiresAt && Date.now() > config.expiresAt - 5 * 60 * 1000) {
+    const ok = await refreshAccessToken();
+    if (!ok) { disconnect(); return null; }
+  }
+  return config.accessToken;
+}
+
+function disconnect() {
+  config.accessToken = null;
+  config.refreshToken = null;
+  config.expiresAt = null;
+  localStorage.setItem('aq_config', JSON.stringify(config));
+  clearInterval(window._syncTimer);
+  clearInterval(window._countdownTimer);
+  setOAuthStatus('off', 'Não conectado');
+  updateOAuthUI();
+  showToast('🔌 Desconectado do Conta Azul');
+}
+
+function setOAuthStatus(state, text) {
+  const dot  = document.getElementById('syncDot');
+  const dot2 = document.getElementById('oauthDot');
+  const lbl  = document.getElementById('syncLabel');
+  const lbl2 = document.getElementById('oauthStatusText');
+  dot.className  = 'sync-dot' + (state === 'on' ? ' on' : state === 'pending' ? ' pending' : '');
+  dot2.className = 'sync-dot' + (state === 'on' ? ' on' : state === 'pending' ? ' pending' : '');
+  lbl.textContent  = text;
+  lbl2.textContent = text;
+}
+
+function updateOAuthUI() {
+  const connected = !!config.accessToken;
+  document.getElementById('oauthSetupArea').style.display    = connected ? 'none' : 'block';
+  document.getElementById('oauthConnectedInfo').style.display = connected ? 'block' : 'none';
+  document.getElementById('btnDisconnect').style.display      = connected ? 'inline-block' : 'none';
+  document.getElementById('callbackUrlDisplay').textContent   = CALLBACK_URL;
+
+  if (connected && config.expiresAt) {
+    const remaining = Math.round((config.expiresAt - Date.now()) / 60000);
+    const el = document.getElementById('tokenExpiryInfo');
+    if (remaining > 5) {
+      el.textContent = `🔑 Token expira em ~${remaining} min (renova automaticamente)`;
+      el.className = 'token-expiry';
+    } else {
+      el.textContent = `⚠️ Token expira em breve — renovando...`;
+      el.className = 'token-expiry warn';
+    }
+  }
+  if (config.clientId) document.getElementById('cfgClientId').value = config.clientId;
+  if (config.clientSecret) document.getElementById('cfgClientSecret').value = config.clientSecret;
+}
+
+// ── AUTO SYNC ─────────────────────────────────────────────────
+const SYNC_INTERVAL_MS = 60 * 60 * 1000;
+let nextSyncAt = null;
+
+function startAutoSync() {
+  if (!config.accessToken) return;
+  clearInterval(window._syncTimer);
+  clearInterval(window._countdownTimer);
+  nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
+  window._syncTimer = setInterval(() => {
+    syncNow();
+    nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
+  }, SYNC_INTERVAL_MS);
+  window._countdownTimer = setInterval(() => {
+    if (!nextSyncAt) return;
+    const rem = Math.max(0, Math.round((nextSyncAt - Date.now()) / 1000));
+    const m = String(Math.floor(rem / 60)).padStart(2,'0');
+    const s = String(rem % 60).padStart(2,'0');
+    document.getElementById('countdown').textContent = `Próxima sync: ${m}:${s}`;
+  }, 1000);
+}
+
+// ── SYNC ──────────────────────────────────────────────────────
+async function syncNow() {
+  const token = await getValidToken();
+  if (!token) { showToast('⚠️ Conecte o Conta Azul primeiro'); toggle('configPanel'); return; }
+
+  const btn = document.getElementById('syncBtn');
+  btn.classList.add('loading'); btn.innerHTML = '⏳ Sincronizando...';
+
+  try {
+    const res = await fetch('https://aquasmart-api.cassio-58a.workers.dev/api?path=/v1/venda/busca', {
+      headers: { 'X-Token': token }
+    });
+    if (!res.ok) throw new Error('Erro ' + res.status + ' — verifique a conexão');
+    const data = await res.json();
+    const sales = data.vendas || data.items || (Array.isArray(data) ? data : []);
+    let updated = 0, totalPts = 0;
+
+    for (const sale of sales) {
+      const caId   = String((sale.cliente && sale.cliente.id) || (sale.customer && sale.customer.id) || sale.customerId || '');
+      const saleId = String(sale.id || sale.id_legado || sale.numero || sale.number || '');
+      if (!caId || !saleId) continue;
+
+      let client = clients.find(c => c.caId === caId);
+      if (!client) {
+        client = { id: uid(), name: (sale.cliente && sale.cliente.nome) || (sale.customer && sale.customer.name) || 'Cliente sem nome', contact: '', phone: '', email: (sale.cliente && sale.cliente.email) || (sale.customer && sale.customer.email) || '', caId, points: 0, purchases: 0, history: [], lastPurchase: null, syncedSales: [] };
+        clients.push(client);
+      }
+      if (!client.syncedSales) client.syncedSales = [];
+      if (client.syncedSales.includes(saleId)) continue;
+
+      const items = sale.items || sale.products || [];
+      let pts = 0;
+      if (items.length) {
+        for (const item of items) {
+          const n   = (item.name || item.description || item.product?.name || '').toLowerCase();
+          const qty = Number(item.quantity || item.qty || 1);
+          if (n.includes('peixe') || n.includes('clown') || n.includes('nemo') || n.includes('palhaço')) pts += 10 * qty;
+          else if (n.includes('micro') || n.includes('copepod') || n.includes('alga') || n.includes('rotifera')) pts += 50 * qty;
+          else if (n.includes('congel') || n.includes('nanno') || n.includes('zoo') || n.includes('aliment')) pts += 20 * qty;
+          else pts += 10 * qty;
+        }
+      } else { pts = 10; }
+
+      pts += 1000; // +1000 pts por compra realizada
+      client.points += pts;
+      client.purchases = (client.purchases || 0) + 1;
+      client.lastPurchase = sale.data || sale.emission || sale.criado_em || sale.createdAt || new Date().toISOString();
+      client.history.push({ pts, desc: `Venda #${saleId} via Conta Azul (+1000 por compra)`, date: client.lastPurchase });
+      client.syncedSales.push(saleId);
+      totalPts += pts; updated++;
+    }
+    save(); render();
+    setOAuthStatus('on', '✅ Conta Azul conectado');
+    document.getElementById('statSync').textContent = new Date().toLocaleTimeString('pt-BR');
+    updateOAuthUI();
+    showToast(`✅ ${updated} venda(s) processada(s) — ${totalPts} pts distribuídos`);
+  } catch(e) {
+    showToast('❌ ' + e.message);
+  } finally {
+    btn.classList.remove('loading'); btn.innerHTML = '🔄 Sincronizar';
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function getTier(pts)     { return TIERS.find(t => pts >= t.min && pts <= t.max) || TIERS[0]; }
+function getNextTier(pts) { const i = TIERS.findIndex(t => pts >= t.min && pts <= t.max); return TIERS[i+1] || null; }
+function getProgress(pts) {
+  const t = getTier(pts), n = getNextTier(pts);
+  if (!n) return 100;
+  return Math.min(100, Math.round(((pts - t.min) / (n.min - t.min)) * 100));
+}
+function save() { localStorage.setItem('aq_clients', JSON.stringify(clients)); }
+function uid()  { return Math.random().toString(36).slice(2, 10); }
+
+// ── RENDER ────────────────────────────────────────────────────
+function render() {
+  const sorted = [...clients].sort((a, b) => b.points - a.points);
+  renderPodium(sorted);
+  renderRankingTable(sorted);
+  renderStats(sorted);
+}
+
+function renderPodium(sorted) {
+  const podium = document.getElementById('podium');
+  if (sorted.length < 1) { podium.innerHTML = ''; return; }
+  const order   = [sorted[1], sorted[0], sorted[2]].filter(Boolean);
+  const classes = ['podium-2','podium-1','podium-3'];
+  const medals  = ['🥈','🥇','🥉'];
+  podium.innerHTML = order.map((c, i) => `
+    <div class="podium-item ${classes[i]}" onclick="openDetail('${c.id}')" style="cursor:pointer;">
+      <div class="podium-name">${c.name}</div>
+      <div class="podium-pts">${c.points.toLocaleString('pt-BR')} pts</div>
+      <div class="podium-block">${medals[i]}</div>
+    </div>`).join('');
+}
+
+function renderRankingTable(sorted) {
+  const el    = document.getElementById('rankingTable');
+  const empty = document.getElementById('emptyState');
+  if (!sorted.length) { el.innerHTML = ''; el.appendChild(empty); empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  el.innerHTML = sorted.map((c, i) => {
+    const tier     = getTier(c.points);
+    const next     = getNextTier(c.points);
+    const prog     = getProgress(c.points);
+    const ptsToNext = next ? (next.min - c.points).toLocaleString('pt-BR') + ' p/ ' + next.label : '🏆 Máximo';
+    const posClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze-color' : '';
+    const lastBuy  = c.lastPurchase ? new Date(c.lastPurchase).toLocaleDateString('pt-BR') : '—';
+    return `
+    <div class="ranking-row" onclick="openDetail('${c.id}')">
+      <div class="rank-pos ${posClass}">${i+1}</div>
+      <div>
+        <div class="rank-name">${c.name}</div>
+        <div class="rank-sub">${c.contact ? c.contact + ' · ' : ''} Último pedido: ${lastBuy}</div>
+      </div>
+      <div><span class="badge badge-${tier.key}">${tier.icon} ${tier.label}</span></div>
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" style="width:${prog}%"></div></div>
+        <div class="progress-label">${ptsToNext}</div>
+      </div>
+      <div>
+        <div class="rank-pts">${c.points.toLocaleString('pt-BR')}</div>
+        <div class="rank-pts-label">pontos</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderStats(sorted) {
+  document.getElementById('statTotal').textContent = clients.length;
+  document.getElementById('statPts').textContent   = clients.reduce((s, c) => s + c.points, 0).toLocaleString('pt-BR');
+  if (sorted.length) {
+    document.getElementById('statLeader').textContent    = sorted[0].name;
+    document.getElementById('statLeaderPts').textContent = sorted[0].points.toLocaleString('pt-BR') + ' pts';
+  } else {
+    document.getElementById('statLeader').textContent    = '—';
+    document.getElementById('statLeaderPts').textContent = '';
+  }
+}
+
+// ── CLIENT CRUD ───────────────────────────────────────────────
+function openAddClient() { editingId = null; clearForm(); document.getElementById('modalTitle').textContent = 'Nova loja'; openModal('clientModal'); }
+function openEdit(id) {
+  editingId = id;
+  const c = clients.find(x => x.id === id); if (!c) return;
+  document.getElementById('modalTitle').textContent = 'Editar loja';
+  document.getElementById('fName').value    = c.name    || '';
+  document.getElementById('fContact').value = c.contact || '';
+  document.getElementById('fPhone').value   = c.phone   || '';
+  document.getElementById('fEmail').value   = c.email   || '';
+  document.getElementById('fCaId').value    = c.caId    || '';
+  openModal('clientModal');
+}
+function openEditFromDetail() { closeModal('detailModal'); openEdit(detailId); }
+function clearForm() { ['fName','fContact','fPhone','fEmail','fCaId'].forEach(id => document.getElementById(id).value = ''); }
+function saveClient() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { showToast('⚠️ Informe o nome da loja'); return; }
+  if (editingId) {
+    const c = clients.find(x => x.id === editingId);
+    if (c) { c.name = name; c.contact = document.getElementById('fContact').value.trim(); c.phone = document.getElementById('fPhone').value.trim(); c.email = document.getElementById('fEmail').value.trim(); c.caId = document.getElementById('fCaId').value.trim(); }
+  } else {
+    clients.push({ id: uid(), name, contact: document.getElementById('fContact').value.trim(), phone: document.getElementById('fPhone').value.trim(), email: document.getElementById('fEmail').value.trim(), caId: document.getElementById('fCaId').value.trim(), points: 0, purchases: 0, history: [], lastPurchase: null, syncedSales: [] });
+  }
+  save(); closeModal('clientModal'); render(); showToast('✅ Loja salva!');
+}
+
+// ── DETAIL ────────────────────────────────────────────────────
+function openDetail(id) {
+  detailId = id; selectedCat = null;
+  document.getElementById('qtyRow').style.display = 'none';
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  renderDetail(); openModal('detailModal');
+}
+function renderDetail() {
+  const c = clients.find(x => x.id === detailId); if (!c) return;
+  const tier = getTier(c.points), next = getNextTier(c.points), prog = getProgress(c.points);
+  document.getElementById('detailName').textContent    = c.name;
+  document.getElementById('detailContact').textContent = [c.contact, c.phone, c.email].filter(Boolean).join(' · ') || 'Sem contato cadastrado';
+  document.getElementById('detailPts').textContent     = c.points.toLocaleString('pt-BR');
+  document.getElementById('detailBadge').innerHTML     = `<span class="badge badge-${tier.key}">${tier.icon} ${tier.label}</span>`;
+  document.getElementById('detailProgress').style.width = prog + '%';
+  document.getElementById('detailProgressLabel').textContent = next ? (next.min - c.points).toLocaleString('pt-BR') + ' pts para ' + next.label : '🏆 Nível máximo!';
+  const hist = document.getElementById('historyList');
+  if (!c.history || !c.history.length) { hist.innerHTML = '<div style="color:var(--text-dim);padding:10px 0;font-size:13px;">Nenhuma movimentação ainda</div>'; return; }
+  hist.innerHTML = [...c.history].reverse().map(h => `
+    <div class="history-item">
+      <div><div class="h-desc">${h.desc}</div><div class="h-date">${new Date(h.date).toLocaleString('pt-BR')}</div></div>
+      <div class="h-pts">${h.pts > 0 ? '+' : ''}${h.pts}</div>
+    </div>`).join('');
+}
+function selectCat(cat) {
+  selectedCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('cat' + cat.charAt(0).toUpperCase() + cat.slice(1)).classList.add('selected');
+  document.getElementById('qtyRow').style.display = 'flex';
+  document.getElementById('qtyLabel').textContent = `Qtd de ${CATS[cat].label} (${CATS[cat].pts} pts cada):`;
+  document.getElementById('qtyInput').value = 1;
+  document.getElementById('qtyInput').focus();
+}
+function applyQty() {
+  if (!selectedCat) return;
+  const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+  const cat = CATS[selectedCat];
+  addPoints(detailId, cat.pts * qty, `${cat.label} × ${qty} unid.`);
+  document.getElementById('qtyRow').style.display = 'none';
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  selectedCat = null;
+}
+function quickPts(pts, desc) { addPoints(detailId, pts, desc); }
+function addManual() {
+  const pts  = parseInt(document.getElementById('manualPts').value);
+  const desc = document.getElementById('manualDesc').value.trim() || 'Ajuste manual';
+  if (!pts) { showToast('⚠️ Informe os pontos'); return; }
+  document.getElementById('manualPts').value  = '';
+  document.getElementById('manualDesc').value = '';
+  addPoints(detailId, pts, desc);
+}
+function addPoints(id, pts, desc) {
+  const c = clients.find(x => x.id === id); if (!c) return;
+  c.points = Math.max(0, c.points + pts);
+  if (!c.history) c.history = [];
+  c.history.push({ pts, desc, date: new Date().toISOString() });
+  if (['Peixe','Microvida','Alimento','Compra'].some(k => desc.includes(k))) {
+    c.purchases = (c.purchases || 0) + 1;
+    c.lastPurchase = new Date().toISOString();
+  }
+  save(); renderDetail(); render();
+  showToast(`${pts > 0 ? '✅ +' + pts : '➖ ' + pts} pts → ${c.name}`);
+}
+function deleteClient() {
+  const c = clients.find(x => x.id === detailId);
+  if (!c || !confirm(`Remover ${c.name} do programa?`)) return;
+  clients = clients.filter(x => x.id !== detailId);
+  save(); closeModal('detailModal'); render(); showToast('🗑 Loja removida');
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────
+function toggle(id)      { document.getElementById(id).classList.toggle('open'); }
+function openModal(id)   { document.getElementById(id).classList.add('open'); }
+function closeModal(id)  { document.getElementById(id).classList.remove('open'); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+updateOAuthUI();
+handleOAuthCallback(); // processa redirect do OAuth2 se houver ?code= na URL
+if (config.accessToken) {
+  setOAuthStatus('on', '✅ Conta Azul conectado');
+  startAutoSync();
+}
+render();
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
