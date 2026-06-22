@@ -1370,7 +1370,7 @@ function removeHistoryEntry(clientId, idx) {
   showToast(`🗑 Entrada removida — ${entry.pts > 0 ? '-' : '+'}${Math.abs(entry.pts)} pts estornados`);
 }
 
-
+function deleteClient() {
   const c = clients.find(x => x.id === detailId);
   if (!c || !confirm(`Remover ${c.name} do programa?`)) return;
   clients = clients.filter(x => x.id !== detailId);
@@ -1395,28 +1395,25 @@ document.addEventListener('DOMContentLoaded', function() {
   handleOAuthCallback();
 
   // Detecta token na URL (quando vem do Worker)
-  (function() {
-    const params = new URLSearchParams(window.location.search);
-    const tkn = params.get('token');
-    if (tkn) {
-      config.accessToken = tkn;
-      config.expiresAt = Date.now() + 3600000;
-      localStorage.setItem('aq_config', JSON.stringify(config));
-      window.history.replaceState({}, '', window.location.pathname);
-      setOAuthStatus('on', '✅ Conta Azul conectado');
-      updateOAuthUI();
-      startAutoSync();
-      showToast('🎉 Token salvo! Sincronizando...');
-      setTimeout(syncNow, 500);
-      render();
-      return;
-    }
-  })();
-
-  if (config.accessToken) {
+  const _params = new URLSearchParams(window.location.search);
+  const _tkn = _params.get('token');
+  if (_tkn) {
+    config.accessToken = _tkn;
+    config.expiresAt = Date.now() + 3600000;
+    localStorage.setItem('aq_config', JSON.stringify(config));
+    window.history.replaceState({}, '', window.location.pathname);
     setOAuthStatus('on', '✅ Conta Azul conectado');
+    updateOAuthUI();
     startAutoSync();
+    showToast('🎉 Token salvo! Sincronizando...');
+    setTimeout(syncNow, 500);
+  } else {
+    if (config.accessToken) {
+      setOAuthStatus('on', '✅ Conta Azul conectado');
+      startAutoSync();
+    }
   }
+
   render();
   document.querySelectorAll('.modal-overlay').forEach(o => {
     o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
