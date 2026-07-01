@@ -175,24 +175,31 @@ export default function MetasPage() {
 
       {!selectedVendedor ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {vendedores.map(v => (
-            <button key={v.id} onClick={() => selectVendedor(v)}
-              className="bg-white border border-gray-200 rounded-xl p-5 text-left hover:border-blue-400 hover:shadow-md transition-all">
-              <div className="font-semibold text-gray-900 text-lg">{v.nome}</div>
-              <div className="text-sm text-gray-500 mt-0.5">{v.totalClientes} clientes</div>
+          {vendedores.map(v => {
+            // Meta e % referentes ao período selecionado
+            const metaRef = periodo === "trimestre" ? v.metaTrimestre
+              : periodo === "semestre" ? v.metaSemestre
+              : periodo === "ano" ? v.metaAnual
+              : v.metaMes;
+            const pctRef = periodo === "trimestre" ? v.pctTrim
+              : periodo === "semestre" ? v.pctSem
+              : periodo === "ano" ? v.pctAno
+              : v.pctMes;
+            return (
+              <button key={v.id} onClick={() => selectVendedor(v)}
+                className="bg-white border border-gray-200 rounded-xl p-5 text-left hover:border-blue-400 hover:shadow-md transition-all">
+                <div className="font-semibold text-gray-900 text-lg">{v.nome}</div>
+                <div className="text-sm text-gray-500 mt-0.5">{v.totalClientes} clientes</div>
 
-              <div className="mt-3 text-blue-600 font-bold text-2xl">{fmt(v.totalPeriodo)}</div>
-              <div className="text-xs text-gray-400 mb-3">{periodoLabel}</div>
+                <div className="mt-3 text-blue-600 font-bold text-2xl">{fmt(v.totalPeriodo)}</div>
+                <div className="text-xs text-gray-400 mb-3">{periodoLabel}</div>
 
-              {/* Barras de % das metas */}
-              <div className="border-t border-gray-100 pt-3 space-y-1">
-                <PctBar pct={v.pctMes} label="Mês atual" meta={v.metaMes} />
-                <PctBar pct={v.pctTrim} label="Trimestre" meta={v.metaTrimestre} />
-                <PctBar pct={v.pctSem} label="Semestre" meta={v.metaSemestre} />
-                <PctBar pct={v.pctAno} label="Ano" meta={v.metaAnual} />
-              </div>
-            </button>
-          ))}
+                <div className="border-t border-gray-100 pt-3">
+                  <PctBar pct={pctRef} label="% da meta" meta={metaRef} />
+                </div>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-4">

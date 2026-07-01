@@ -29,6 +29,12 @@ export default function RootLayout({
             <a href="/metas" className="text-sm text-gray-600 hover:text-blue-700">
               Metas de Vendas
             </a>
+            <a href="/resumo" className="text-sm text-gray-600 hover:text-blue-700">
+              Resumo
+            </a>
+            <a href="/admin" className="text-sm text-gray-400 hover:text-blue-700 ml-auto">
+              ⚙ Admin
+            </a>
           </div>
         </nav>
         <main className="max-w-5xl mx-auto px-6 py-8">{children}</main>

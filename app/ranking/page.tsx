@@ -145,6 +145,68 @@ export default function RankingPage() {
         })}
       </div>
 
+      {/* Regras de pontuação */}
+      <details className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <summary className="px-5 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:bg-gray-50 select-none flex items-center gap-2">
+          <span>📊</span> Como funciona a pontuação?
+        </summary>
+        <div className="px-5 pb-5 pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-t border-gray-100">
+          {/* Recorrência */}
+          <div>
+            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Recorrência <span className="text-gray-400 font-normal normal-case">(até 40 pts)</span></div>
+            <div className="space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between"><span>3 meses seguidos</span><span className="font-semibold text-gray-900">40 pts</span></div>
+              <div className="flex justify-between"><span>2 meses nos últimos 3</span><span className="font-semibold text-gray-900">25 pts</span></div>
+              <div className="flex justify-between"><span>1 mês</span><span className="font-semibold text-gray-900">10 pts</span></div>
+            </div>
+          </div>
+          {/* Mix */}
+          <div>
+            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Mix de linhas <span className="text-gray-400 font-normal normal-case">(até 30 pts)</span></div>
+            <div className="space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between"><span>3 linhas (C + P + M)</span><span className="font-semibold text-gray-900">30 pts</span></div>
+              <div className="flex justify-between"><span>2 linhas</span><span className="font-semibold text-gray-900">15 pts</span></div>
+              <div className="flex justify-between"><span>1 linha</span><span className="font-semibold text-gray-900">5 pts</span></div>
+            </div>
+          </div>
+          {/* Valor */}
+          <div>
+            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Valor no mês <span className="text-gray-400 font-normal normal-case">(até 30 pts)</span></div>
+            <div className="space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between"><span>Acima de R$ 5.000</span><span className="font-semibold text-gray-900">30 pts</span></div>
+              <div className="flex justify-between"><span>R$ 3.001 – R$ 5.000</span><span className="font-semibold text-gray-900">24 pts</span></div>
+              <div className="flex justify-between"><span>R$ 1.501 – R$ 3.000</span><span className="font-semibold text-gray-900">18 pts</span></div>
+              <div className="flex justify-between"><span>R$ 501 – R$ 1.500</span><span className="font-semibold text-gray-900">10 pts</span></div>
+              <div className="flex justify-between"><span>Até R$ 500</span><span className="font-semibold text-gray-900">5 pts</span></div>
+            </div>
+          </div>
+          {/* Inadimplência + Níveis */}
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs font-bold text-red-600 mb-2 uppercase tracking-wide">Inadimplência <span className="text-gray-400 font-normal normal-case text-gray-600">(-15 pts)</span></div>
+              <div className="text-xs text-gray-600">Penalidade de 15 pts se houver pendência financeira em aberto.</div>
+            </div>
+            <div>
+              <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Níveis</div>
+              <div className="space-y-1 text-xs">
+                {[
+                  { name: "Bronze",   range: "0–24",   color: "bg-amber-100 text-amber-800" },
+                  { name: "Silver",   range: "25–49",  color: "bg-gray-200 text-gray-700" },
+                  { name: "Gold",     range: "50–69",  color: "bg-yellow-100 text-yellow-800" },
+                  { name: "Platinum", range: "70–84",  color: "bg-purple-100 text-purple-800" },
+                  { name: "Diamante", range: "85–100", color: "bg-cyan-100 text-cyan-800" },
+                ].map(l => (
+                  <div key={l.name} className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${l.color}`}>{l.name}</span>
+                    <span className="text-gray-500">{l.range} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
         {([["ranking", "Ranking"], ["oportunidades", "Oportunidades"], ["inativos", "Inativos"]] as const).map(([key, label]) => (
