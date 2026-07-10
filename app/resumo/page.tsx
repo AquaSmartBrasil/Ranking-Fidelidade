@@ -8,6 +8,8 @@ type ResumoData = {
   ano: number; mesAtual: number;
   metaAnual: number; metaTrim: number; metaSem: number;
   realizadoAno: number; realizadoTrim: number; realizadoSem: number;
+  trimLabel: string; semLabel: string;
+  trimIdx: number; semIdx: number; trimAtualIdx: number; semAtualIdx: number;
   vendedores: Vendedor[]; meses: MesData[];
 };
 
@@ -26,8 +28,8 @@ function GoalCard({ label, meta, realizado }: { label: string; meta: number; rea
   const color = pct === null ? "text-gray-700" : pct >= 100 ? "text-green-600" : pct >= 70 ? "text-blue-600" : "text-orange-600";
   const barColor = pct === null ? "bg-gray-300" : pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-blue-500" : "bg-orange-400";
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
-      <div className="text-xs text-gray-500 font-medium mb-2">{label}</div>
+    <div className={label ? "bg-white border border-gray-200 rounded-xl p-5" : ""}>
+      {label && <div className="text-xs text-gray-500 font-medium mb-2">{label}</div>}
       <div className="flex items-end justify-between mb-1">
         <span className="text-xl font-bold text-gray-900">{fmt(realizado)}</span>
         {pct !== null && <span className={`text-sm font-bold ${color}`}>{pct}%</span>}
@@ -46,10 +48,16 @@ export default function ResumoPage() {
   const [data, setData] = useState<ResumoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [hoverMes, setHoverMes] = useState<number | null>(null);
+  const [trimOffset, setTrimOffset] = useState(0);
+  const [semOffset, setSemOffset] = useState(0);
 
-  useEffect(() => {
-    fetch("/api/resumo").then(r => r.json()).then(d => { setData(d); setLoading(false); });
-  }, []);
+  function load(tOff: number, sOff: number) {
+    setLoading(true);
+    fetch(`/api/resumo?trimOffset=${tOff}&semOffset=${sOff}`)
+      .then(r => r.json()).then(d => { setData(d); setLoading(false); });
+  }
+
+  useEffect(() => { load(trimOffset, semOffset); }, [trimOffset, semOffset]);
 
   if (loading) return <div className="text-sm text-gray-400">Carregando...</div>;
   if (!data) return <div className="text-sm text-red-600">Erro ao carregar dados.</div>;
@@ -67,8 +75,34 @@ export default function ResumoPage() {
       {/* Cards de metas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <GoalCard label="Meta Anual" meta={data.metaAnual} realizado={data.realizadoAno} />
-        <GoalCard label="Meta Trimestre Atual" meta={data.metaTrim} realizado={data.realizadoTrim} />
-        <GoalCard label="Meta Semestre Atual" meta={data.metaSem} realizado={data.realizadoSem} />
+
+        {/* Trimestre com setas */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-500 font-medium">{data.trimLabel} · {data.ano}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setTrimOffset(o => Math.min(o + 1, data.trimAtualIdx))}
+                className={`w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-gray-100 ${trimOffset >= data.trimAtualIdx ? "opacity-30 cursor-not-allowed" : ""}`}>‹</button>
+              <button onClick={() => setTrimOffset(o => Math.max(o - 1, 0))}
+                className={`w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-gray-100 ${trimOffset === 0 ? "opacity-30 cursor-not-allowed" : ""}`}>›</button>
+            </div>
+          </div>
+          <GoalCard label="" meta={data.metaTrim} realizado={data.realizadoTrim} />
+        </div>
+
+        {/* Semestre com setas */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-500 font-medium">{data.semLabel} · {data.ano}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setSemOffset(o => Math.min(o + 1, data.semAtualIdx))}
+                className={`w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-gray-100 ${semOffset >= data.semAtualIdx ? "opacity-30 cursor-not-allowed" : ""}`}>‹</button>
+              <button onClick={() => setSemOffset(o => Math.max(o - 1, 0))}
+                className={`w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-gray-100 ${semOffset === 0 ? "opacity-30 cursor-not-allowed" : ""}`}>›</button>
+            </div>
+          </div>
+          <GoalCard label="" meta={data.metaSem} realizado={data.realizadoSem} />
+        </div>
       </div>
 
       {/* Legenda vendedores */}

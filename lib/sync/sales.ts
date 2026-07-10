@@ -44,10 +44,10 @@ export async function syncSales(
 ): Promise<number> {
   const accessToken = await getValidAccessToken(companyId);
 
-  const fim = dataFim ?? new Date().toISOString().slice(0, 10);
-  const inicioDate = new Date();
-  inicioDate.setDate(inicioDate.getDate() - 90);
-  const inicio = dataInicio ?? inicioDate.toISOString().slice(0, 10);
+  const brNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const fim = dataFim ?? brNow.toISOString().slice(0, 10);
+  const inicioAno = `${brNow.getUTCFullYear()}-01-01`;
+  const inicio = dataInicio ?? inicioAno;
 
   let pagina = 1;
   let total = 0;
@@ -113,10 +113,10 @@ export async function syncSaleItems(
   const BATCH = 8; // seguro dentro do timeout de 10s
   const accessToken = await getValidAccessToken(companyId);
 
-  const fim = dataFim ?? new Date().toISOString().slice(0, 10);
-  const inicioDate = new Date();
-  inicioDate.setDate(inicioDate.getDate() - 90);
-  const inicio = dataInicio ?? inicioDate.toISOString().slice(0, 10);
+  const brNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const fim = dataFim ?? brNow.toISOString().slice(0, 10);
+  const inicioAno = `${brNow.getUTCFullYear()}-01-01`;
+  const inicio = dataInicio ?? inicioAno;
 
   // Buscar todas as vendas do período
   const { data: allSales } = await supabaseAdmin

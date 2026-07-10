@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 type Goal = {
   id: string; vendedor_id: string; vendedor_nome: string;
-  meta_mensal: number; updated_at: string; excluido?: boolean;
+  meta_mensal: number; meta_clientes: number; updated_at: string; excluido?: boolean;
 };
 type MesDistrib = { mes: number; pct: number; valor: number };
 type RealizadoMes = { mes: number; valor: number; fechado: boolean; atual: boolean };
@@ -55,6 +55,8 @@ export default function AdminPage() {
   const [distribEdit, setDistribEdit] = useState<number[]>([]);
   const [distribuindo, setDistribuindo] = useState(false);
   const [distribPreview, setDistribPreview] = useState<{ vendedor_nome: string; peso: number; metaMensal: number; metaAnual: number; clientes: number }[] | null>(null);
+  const [mediaClientes, setMediaClientes] = useState<Record<string, number>>({});
+  const [editingClientes, setEditingClientes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     Promise.all([
@@ -62,6 +64,7 @@ export default function AdminPage() {
       fetch("/api/admin/company-goals").then(r => r.json()),
     ]).then(([vd, cd]) => {
       setGoals(vd.goals ?? []);
+      setMediaClientes(vd.mediaClientes ?? {});
       setTableError(vd.tableError ?? (cd.error ? cd.error : null));
       if (cd && !cd.error) {
         setCompany(cd);
@@ -160,6 +163,40 @@ export default function AdminPage() {
     setSaving(null);
   }
 
+  async function saveMetaClientes(g: Goal) {
+    const val = Number(editingClientes[g.vendedor_id]);
+    if (isNaN(val) || val < 0) return;
+    setSaving(g.vendedor_id + "_c");
+    const res = await fetch("/api/admin/vendedor-goals", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendedor_id: g.vendedor_id, vendedor_nome: g.vendedor_nome, meta_clientes: val }),
+    });
+    const data = await res.json();
+    if (!data.error) {
+      setGoals(prev => prev.map(x => x.vendedor_id === g.vendedor_id ? { ...x, meta_clientes: val } : x));
+      const n = { ...editingClientes }; delete n[g.vendedor_id]; setEditingClientes(n);
+      setMessage(`Meta de clientes de ${g.vendedor_nome} salva!`);
+      setTimeout(() => setMessage(null), 3000);
+    }
+    setSaving(null);
+  }
+
+  async function aplicarMediaClientes() {
+    for (const g of goalsAtivos) {
+      const media = mediaClientes[g.vendedor_id];
+      if (!media || media === g.meta_clientes) continue;
+      await fetch("/api/admin/vendedor-goals", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendedor_id: g.vendedor_id, vendedor_nome: g.vendedor_nome, meta_clientes: media }),
+      });
+    }
+    const vd = await fetch("/api/admin/vendedor-goals").then(r => r.json());
+    setGoals(vd.goals ?? []);
+    setMediaClientes(vd.mediaClientes ?? {});
+    setMessage("Médias históricas aplicadas!");
+    setTimeout(() => setMessage(null), 3000);
+  }
+
   function cancel(vid: string) {
     const newEditing = { ...editing };
     delete newEditing[vid];
@@ -198,7 +235,8 @@ export default function AdminPage() {
   const goalsExcluidos = goals.filter(g => g.excluido);
   const totalVendMensal = goalsAtivos.reduce((s, g) => s + (Number(g.meta_mensal) || 0), 0);
   const totalVendAnual = totalVendMensal * 12;
-  const distribValores = metaAnualNum > 0 ? calcDistrib(metaAnualNum, distribEdit) : [];
+  const metaBase = metaAnualNum > 0 ? metaAnualNum : (company?.metaAnual ?? 0);
+  const distribValores = metaBase > 0 ? calcDistrib(metaBase, distribEdit) : [];
   const pctTotalDistrib = distribEdit.reduce((s, p) => s + p, 0);
   const pctCobertura = metaAnualNum > 0 ? Math.round((totalVendAnual / metaAnualNum) * 100) : null;
 
@@ -235,12 +273,12 @@ export default function AdminPage() {
             </div>
 
             {/* Meta salva em destaque */}
-            {company?.metaAnual && company.metaAnual > 0 && (
+            {(company?.metaAnual ?? 0) > 0 && (
               <div className="flex items-center gap-4 bg-blue-600 text-white rounded-xl px-5 py-4">
                 <div className="flex-1">
                   <div className="text-xs font-medium text-blue-200 uppercase tracking-wide mb-0.5">Meta Anual Definida</div>
-                  <div className="text-3xl font-bold">{fmt(company.metaAnual)}</div>
-                  <div className="text-sm text-blue-200 mt-0.5">= {fmt(company.metaAnual / 12)} por mês</div>
+                  <div className="text-3xl font-bold">{fmt(company!.metaAnual)}</div>
+                  <div className="text-sm text-blue-200 mt-0.5">= {fmt(company!.metaAnual / 12)} por mês</div>
                 </div>
                 {pctCobertura !== null && (
                   <div className="text-center bg-white/10 rounded-xl px-4 py-3">
@@ -255,7 +293,7 @@ export default function AdminPage() {
             <div className="flex items-end gap-4 flex-wrap">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  {company?.metaAnual && company.metaAnual > 0 ? "Alterar Meta Anual (R$)" : "Meta Anual da Empresa (R$)"}
+                  {(company?.metaAnual ?? 0) > 0 ? "Alterar Meta Anual (R$)" : "Meta Anual da Empresa (R$)"}
                 </label>
                 <input
                   type="number"
@@ -293,7 +331,7 @@ export default function AdminPage() {
             )}
 
             {/* Distribuição mensal */}
-            {metaAnualNum > 0 && (
+            {(metaAnualNum > 0 || (company?.metaAnual ?? 0) > 0) && (
               <div>
                 <div className="flex items-center gap-3 mb-3 flex-wrap">
                   <span className="text-xs font-medium text-gray-700">Distribuição por mês</span>
@@ -415,8 +453,14 @@ export default function AdminPage() {
 
           {/* ─── RESUMO VENDEDORES ─── */}
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-semibold text-gray-900">Metas dos Vendedores</h2>
+              {Object.keys(mediaClientes).length > 0 && (
+                <button onClick={aplicarMediaClientes}
+                  className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700">
+                  📊 Aplicar média histórica de clientes
+                </button>
+              )}
               {totalVendMensal > 0 && (
                 <div className="text-right text-sm">
                   <div className="text-gray-500">Total mensal <span className="font-bold text-gray-900">{fmt(totalVendMensal)}</span></div>
@@ -435,8 +479,8 @@ export default function AdminPage() {
                   <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
                       <th className="text-left px-5 py-3 font-medium text-gray-600">Vendedor</th>
-                      <th className="text-right px-5 py-3 font-medium text-gray-600">Meta Mensal</th>
-                      <th className="text-right px-5 py-3 font-medium text-gray-600">Trimestre</th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Meta Faturamento</th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Meta Clientes</th>
                       <th className="text-right px-5 py-3 font-medium text-gray-600">Anual</th>
                       <th className="px-5 py-3" />
                     </tr>
@@ -470,8 +514,27 @@ export default function AdminPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-5 py-4 text-right text-gray-500">
-                            {isEditing ? (numVal > 0 ? fmt(numVal * 3) : "—") : (g.meta_mensal > 0 ? fmt(g.meta_mensal * 3) : "—")}
+                          <td className="px-5 py-4 text-right">
+                            {g.vendedor_id in editingClientes ? (
+                              <div className="flex gap-1 justify-end items-center">
+                                <input type="number" value={editingClientes[g.vendedor_id]}
+                                  onChange={e => setEditingClientes(prev => ({ ...prev, [g.vendedor_id]: e.target.value }))}
+                                  className="border border-purple-300 rounded px-2 py-1 w-20 text-right text-sm focus:outline-none"
+                                  onKeyDown={e => { if (e.key === "Enter") saveMetaClientes(g); }}
+                                  autoFocus />
+                                <button onClick={() => saveMetaClientes(g)} className="text-xs bg-purple-600 text-white px-2 py-1 rounded">OK</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setEditingClientes(prev => ({ ...prev, [g.vendedor_id]: String(g.meta_clientes || mediaClientes[g.vendedor_id] || "") }))}
+                                className="text-right w-full">
+                                <span className={`font-semibold ${g.meta_clientes > 0 ? "text-gray-900" : "text-gray-300"}`}>
+                                  {g.meta_clientes > 0 ? `${g.meta_clientes} clientes` : "—"}
+                                </span>
+                                {!g.meta_clientes && mediaClientes[g.vendedor_id] && (
+                                  <div className="text-[10px] text-purple-500">sugerido: {mediaClientes[g.vendedor_id]}</div>
+                                )}
+                              </button>
+                            )}
                           </td>
                           <td className="px-5 py-4 text-right text-gray-500">
                             {isEditing ? (numVal > 0 ? fmt(numVal * 12) : "—") : (g.meta_mensal > 0 ? fmt(g.meta_mensal * 12) : "—")}

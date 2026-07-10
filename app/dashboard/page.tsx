@@ -37,62 +37,38 @@ function mesLabel(mes: string) {
   return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
 }
 
-const PERIODS = [
-  { label: "Hoje", key: "hoje" },
-  { label: "Esta semana", key: "semana" },
-  { label: "Este mês", key: "mes" },
-  { label: "90 dias", key: "90" },
-  { label: "6 meses", key: "180" },
-  { label: "Este ano", key: "ano" },
-  { label: "Personalizado", key: "custom" },
-];
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function DashboardPage() {
+  const brNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const mesAtualYM = `${brNow.getUTCFullYear()}-${String(brNow.getUTCMonth() + 1).padStart(2, "0")}`;
+  const [mesSel, setMesSel] = useState(mesAtualYM);
+  const [modoAno, setModoAno] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState(2); // Este mês padrão
-  const [customInicio, setCustomInicio] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString().slice(0, 10);
-  });
-  const [customFim, setCustomFim] = useState(today);
 
-  function buildUrl() {
-    const key = PERIODS[periodo].key;
-    if (key === "custom") {
-      return `/api/dashboard?periodo=custom&inicio=${customInicio}&fim=${customFim}`;
-    }
-    return `/api/dashboard?periodo=${key}`;
+  function buildUrl(ms: string, ano: boolean) {
+    if (ano) return `/api/dashboard?periodo=ano`;
+    const [y, m] = ms.split("-").map(Number);
+    const inicio = `${y}-${String(m).padStart(2, "0")}-01`;
+    const fim = new Date(y, m, 0).toISOString().slice(0, 10);
+    return `/api/dashboard?periodo=custom&inicio=${inicio}&fim=${fim}`;
   }
 
   useEffect(() => {
-    if (PERIODS[periodo].key === "custom") return; // espera o usuário apertar "Aplicar"
     setLoading(true);
     setData(null);
-    fetch(buildUrl())
+    fetch(buildUrl(mesSel, modoAno))
       .then((r) => r.json())
       .then((d) => { if (d.error) setError(d.error); else setData(d); })
       .catch(() => setError("Erro ao carregar dados."))
       .finally(() => setLoading(false));
-  }, [periodo]);
+  }, [mesSel, modoAno]);
 
-  function applyCustom() {
-    setLoading(true);
-    setData(null);
-    fetch(buildUrl())
-      .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d); })
-      .catch(() => setError("Erro ao carregar dados."))
-      .finally(() => setLoading(false));
-  }
+  const mesSelLabel = new Date(
+    Number(mesSel.split("-")[0]), Number(mesSel.split("-")[1]) - 1, 1
+  ).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
-  const periodoLabel = PERIODS[periodo].label;
+  const periodoLabel = modoAno ? `Este ano (${brNow.getUTCFullYear()})` : mesSelLabel;
 
   return (
     <div className="space-y-6">
@@ -102,55 +78,34 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
           <p className="text-xs text-gray-400 mt-1">dados do Conta Azul</p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {PERIODS.map((p, i) => (
-            <button
-              key={i}
-              onClick={() => setPeriodo(i)}
-              className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                periodo === i
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-blue-400"
-              }`}
-            >
-              {p.label}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <button onClick={() => {
+              setModoAno(false);
+              const [y, m] = mesSel.split("-").map(Number);
+              const d = new Date(y, m - 2, 1);
+              setMesSel(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+            }} className="px-3 py-2 text-gray-500 hover:bg-gray-100 transition-colors text-lg font-light">‹</button>
+            <button onClick={() => setModoAno(false)}
+              className={`px-3 py-2 text-sm font-medium min-w-[130px] text-center capitalize transition-colors ${modoAno ? "text-gray-400" : "text-gray-800"}`}>
+              {mesSelLabel}
             </button>
-          ))}
+            <button onClick={() => {
+              setModoAno(false);
+              const [y, m] = mesSel.split("-").map(Number);
+              const d = new Date(y, m, 1);
+              const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+              if (next <= mesAtualYM) setMesSel(next);
+            }} className={`px-3 py-2 text-lg font-light transition-colors ${!modoAno && mesSel >= mesAtualYM ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-100"}`}>›</button>
+          </div>
+          <button onClick={() => setModoAno(a => !a)}
+            className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${modoAno ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-400"}`}>
+            Este ano
+          </button>
         </div>
       </div>
 
-      {/* Seletor de datas personalizado */}
-      {PERIODS[periodo].key === "custom" && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">De</label>
-            <input
-              type="date"
-              value={customInicio}
-              max={customFim}
-              onChange={(e) => setCustomInicio(e.target.value)}
-              className="border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Até</label>
-            <input
-              type="date"
-              value={customFim}
-              min={customInicio}
-              max={today()}
-              onChange={(e) => setCustomFim(e.target.value)}
-              className="border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400"
-            />
-          </div>
-          <button
-            onClick={applyCustom}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-1.5 rounded transition-colors"
-          >
-            Aplicar
-          </button>
-        </div>
-      )}
+
 
       {loading && (
         <div className="flex items-center justify-center h-40 text-gray-400 text-sm">

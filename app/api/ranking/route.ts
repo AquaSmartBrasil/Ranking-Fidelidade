@@ -18,29 +18,21 @@ function classifyByName(name: string): 1 | 2 | 3 | null {
   return null;
 }
 
-// Novo modelo: Recorrência(40) + Mix(30) + Valor(30) - Inadimplência(15) = máx 100
+// Modelo: 1pt/linha + 3pts/compra + 3pts/R$1000 - 5pts/inadimplência
 const LEVELS = [
-  { name: "Bronze",   min: 0,  max: 24,  color: "#cd7f32" },
-  { name: "Silver",   min: 25, max: 49,  color: "#9ca3af" },
-  { name: "Gold",     min: 50, max: 69,  color: "#eab308" },
-  { name: "Platinum", min: 70, max: 84,  color: "#8b5cf6" },
-  { name: "Diamante", min: 85, max: Infinity, color: "#06b6d4" },
+  { name: "Bronze",   min: 0,  max: 14,  color: "#cd7f32" },
+  { name: "Silver",   min: 15, max: 19,  color: "#9ca3af" },
+  { name: "Gold",     min: 20, max: 24,  color: "#eab308" },
+  { name: "Platinum", min: 25, max: 29,  color: "#8b5cf6" },
+  { name: "Diamante", min: 30, max: Infinity, color: "#06b6d4" },
 ];
 
-function calcScore(value: number, mesesAtivos: number, lineCount: number, inadimplente: boolean) {
-  // Recorrência: meses com compra nos últimos 3 (0-40)
-  const recorrencia = mesesAtivos >= 3 ? 40 : mesesAtivos === 2 ? 25 : 10;
-  // Mix de linhas (0-30)
-  const mix = lineCount >= 3 ? 30 : lineCount === 2 ? 15 : 5;
-  // Valor mensal (0-30)
-  let valor = 5;
-  if (value > 5000) valor = 30;
-  else if (value > 3000) valor = 24;
-  else if (value > 1500) valor = 18;
-  else if (value > 500) valor = 10;
-  // Penalidade inadimplência
-  const penalidade = inadimplente ? 15 : 0;
-  return Math.max(0, recorrencia + mix + valor - penalidade);
+function calcScore(value: number, purchases: number, lineCount: number, inadimplente: boolean) {
+  const ptLinhas    = lineCount;                           // 1pt por linha
+  const ptCompras   = purchases * 3;                       // 3pts por compra
+  const ptValor     = Math.floor(value / 1000);            // 1pt por R$1000
+  const penalidade  = inadimplente ? 5 : 0;               // -5pts inadimplência
+  return Math.max(0, ptLinhas + ptCompras + ptValor - penalidade);
 }
 
 function getLevel(score: number) {
@@ -68,22 +60,23 @@ export async function GET(req: NextRequest) {
 
   // Buscar 4 meses: mês atual + 3 anteriores (para calcular recorrência)
   const inicio4m = new Date(ano, mes - 4, 1).toISOString().slice(0, 10);
-  // Mês anterior (para inativos)
-  const mesPrevNum = mes === 1 ? 12 : mes - 1;
-  const anoPrev = mes === 1 ? ano - 1 : ano;
-  const inicioMesAnterior = `${anoPrev}-${String(mesPrevNum).padStart(2, "0")}-01`;
-  const fimMesAnterior = new Date(anoPrev, mesPrevNum, 0).toISOString().slice(0, 10);
+  // Buscar 6 meses anteriores (para calcular meses de inatividade)
+  const inicio6m = new Date(ano, mes - 7, 1).toISOString().slice(0, 10);
+  const fimMesAnterior = new Date(ano, mes - 1, 0).toISOString().slice(0, 10);
 
   const EXCLUDE = '("CANCELADO","ORCAMENTO","ESPERANDO_APROVACAO")';
 
-  const [{ data: sales4m }, { data: salesAnt }] = await Promise.all([
+  const [{ data: sales4m }, { data: sales6mAnt }] = await Promise.all([
     supabaseAdmin.from("sales").select("id, sale_date, total_amount, raw_json")
       .eq("company_id", companyId).gte("sale_date", inicio4m).lte("sale_date", fimMes)
       .not("status", "in", EXCLUDE).limit(5000),
-    supabaseAdmin.from("sales").select("total_amount, raw_json")
-      .eq("company_id", companyId).gte("sale_date", inicioMesAnterior).lte("sale_date", fimMesAnterior)
+    supabaseAdmin.from("sales").select("sale_date, total_amount, raw_json")
+      .eq("company_id", companyId).gte("sale_date", inicio6m).lte("sale_date", fimMesAnterior)
       .not("status", "in", EXCLUDE).limit(5000),
   ]);
+  // salesAnt = apenas o mês imediatamente anterior (usado para prevValues)
+  const mesAnteriorStr = new Date(ano, mes - 2, 1).toISOString().slice(0, 7);
+  const salesAnt = (sales6mAnt ?? []).filter(s => (s.sale_date ?? "").slice(0,7) === mesAnteriorStr);
 
   const salesMes = (sales4m ?? []).filter(s => s.sale_date >= inicioMes);
 
@@ -156,23 +149,39 @@ export async function GET(req: NextRequest) {
     prevValues.set(cid, (prevValues.get(cid) ?? 0) + (s.total_amount ?? 0));
   }
 
-  // Clientes do mês anterior que não compraram neste mês
-  const inactivosIds = new Set<string>();
-  for (const s of salesAnt ?? []) {
+  // Mapear meses em que cada cliente comprou nos últimos 6 meses anteriores
+  const clienteMesesHist = new Map<string, { nome: string; meses: Set<string>; lastValue: number }>();
+  for (const s of sales6mAnt ?? []) {
     const raw = s.raw_json as { cliente?: { id?: string; nome?: string } } | null;
     const cid = raw?.cliente?.id ?? "unknown";
-    if (!customersMes.has(cid)) inactivosIds.add(cid);
+    const mesSale = (s.sale_date ?? "").slice(0, 7);
+    const cur = clienteMesesHist.get(cid) ?? { nome: raw?.cliente?.nome ?? "Sem nome", meses: new Set(), lastValue: 0 };
+    cur.meses.add(mesSale);
+    if (mesSale === mesAnteriorStr) cur.lastValue += s.total_amount ?? 0;
+    clienteMesesHist.set(cid, cur);
   }
-  const inactivos: { id: string; name: string; prevValue: number }[] = [];
-  const seenInactive = new Set<string>();
-  for (const s of salesAnt ?? []) {
-    const raw = s.raw_json as { cliente?: { id?: string; nome?: string } } | null;
-    const cid = raw?.cliente?.id ?? "unknown";
-    if (inactivosIds.has(cid) && !seenInactive.has(cid)) {
-      seenInactive.add(cid);
-      inactivos.push({ id: cid, name: raw?.cliente?.nome ?? "Sem nome", prevValue: prevValues.get(cid) ?? 0 });
+
+  // Calcular meses consecutivos de inatividade (contando para trás a partir do mês atual)
+  function mesesInativos(mesesComCompra: Set<string>): number {
+    let count = 0;
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(ano, mes - 1 - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (mesesComCompra.has(key)) break;
+      count++;
     }
+    return count;
   }
+
+  // Inativos: compraram nos últimos 6 meses mas não neste mês
+  const inactivos: { id: string; name: string; prevValue: number; mesesInativos: number }[] = [];
+  for (const [cid, hist] of clienteMesesHist) {
+    if (customersMes.has(cid)) continue; // comprou neste mês, não é inativo
+    const inativos = mesesInativos(hist.meses);
+    if (inativos === 0) continue;
+    inactivos.push({ id: cid, name: hist.nome, prevValue: hist.lastValue, mesesInativos: inativos });
+  }
+  inactivos.sort((a, b) => a.mesesInativos - b.mesesInativos);
 
   // Calcular meses ativos nos últimos 3 meses (excluindo mês atual) por cliente
   const mesAtualStr = `${ano}-${String(mes).padStart(2, "0")}`;
@@ -203,7 +212,7 @@ export async function GET(req: NextRequest) {
     const lineCount = c.lines.size === 0 ? 1 : c.lines.size;
     const mesesAtivos = (clienteMesesAtivos.get(c.id) ?? new Set()).size;
     const inadimplente = clienteInadimplente.get(c.id) ?? false;
-    const score = calcScore(c.value, mesesAtivos, lineCount, inadimplente);
+    const score = calcScore(c.value, c.purchases, lineCount, inadimplente);
     const level = getLevel(score);
     const nextLevel = getNextLevel(score);
     const pointsToNext = nextLevel ? nextLevel.min - score : 0;

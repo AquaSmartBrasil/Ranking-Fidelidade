@@ -26,7 +26,7 @@ interface RankingData {
   ranking: RankingCliente[];
   levelCounts: Record<string, number>;
   totalAtivos: number;
-  inactivos: { id: string; name: string; prevValue: number }[];
+  inactivos: { id: string; name: string; prevValue: number; mesesInativos: number }[];
 }
 
 const LEVEL_CONFIG: Record<string, { bg: string; text: string; border: string; badge: string }> = {
@@ -62,10 +62,9 @@ function mesOptions() {
 export default function RankingPage() {
   const [data, setData] = useState<RankingData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mes, setMes] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const brNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const mesAtualYM = `${brNow.getUTCFullYear()}-${String(brNow.getUTCMonth() + 1).padStart(2, "0")}`;
+  const [mes, setMes] = useState(mesAtualYM);
   const [filterLevel, setFilterLevel] = useState("Todos");
   const [filterLine, setFilterLine] = useState(0);
   const [tab, setTab] = useState<"ranking" | "oportunidades" | "inativos">("ranking");
@@ -108,7 +107,6 @@ export default function RankingPage() {
   if (!data) return <div className="text-red-600 text-sm">Erro ao carregar dados.</div>;
 
   const levels = ["Bronze", "Silver", "Gold", "Platinum", "Diamante"];
-  const meses = mesOptions();
 
   return (
     <div className="space-y-6">
@@ -118,13 +116,22 @@ export default function RankingPage() {
           <h1 className="text-2xl font-bold text-gray-800">Ranking de Clientes</h1>
           <p className="text-xs text-gray-400 mt-1">Gamificação da carteira · pontuação mensal</p>
         </div>
-        <select
-          value={mes}
-          onChange={e => setMes(e.target.value)}
-          className="border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400"
-        >
-          {meses.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
-        </select>
+        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <button onClick={() => {
+            const [y, m] = mes.split("-").map(Number);
+            const d = new Date(y, m - 2, 1);
+            setMes(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+          }} className="px-3 py-2 text-gray-500 hover:bg-gray-100 transition-colors text-lg font-light">‹</button>
+          <span className="px-3 py-2 text-sm font-medium text-gray-800 min-w-[130px] text-center capitalize">
+            {new Date(Number(mes.split("-")[0]), Number(mes.split("-")[1]) - 1, 1).toLocaleString("pt-BR", { month: "long", year: "numeric" })}
+          </span>
+          <button onClick={() => {
+            const [y, m] = mes.split("-").map(Number);
+            const d = new Date(y, m, 1);
+            const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            if (next <= mesAtualYM) setMes(next);
+          }} className={`px-3 py-2 text-lg font-light transition-colors ${mes >= mesAtualYM ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-100"}`}>›</button>
+        </div>
       </div>
 
       {/* Cards de resumo por nível */}
@@ -151,50 +158,42 @@ export default function RankingPage() {
           <span>📊</span> Como funciona a pontuação?
         </summary>
         <div className="px-5 pb-5 pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-t border-gray-100">
-          {/* Recorrência */}
+          {/* Linhas */}
           <div>
-            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Recorrência <span className="text-gray-400 font-normal normal-case">(até 40 pts)</span></div>
+            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Mix de linhas</div>
             <div className="space-y-1 text-xs text-gray-600">
-              <div className="flex justify-between"><span>3 meses seguidos</span><span className="font-semibold text-gray-900">40 pts</span></div>
-              <div className="flex justify-between"><span>2 meses nos últimos 3</span><span className="font-semibold text-gray-900">25 pts</span></div>
-              <div className="flex justify-between"><span>1 mês</span><span className="font-semibold text-gray-900">10 pts</span></div>
+              <div className="flex justify-between"><span>Cada linha comprada</span><span className="font-semibold text-gray-900">+1 pt</span></div>
             </div>
           </div>
-          {/* Mix */}
+          {/* Compras */}
           <div>
-            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Mix de linhas <span className="text-gray-400 font-normal normal-case">(até 30 pts)</span></div>
+            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Número de compras</div>
             <div className="space-y-1 text-xs text-gray-600">
-              <div className="flex justify-between"><span>3 linhas (C + P + M)</span><span className="font-semibold text-gray-900">30 pts</span></div>
-              <div className="flex justify-between"><span>2 linhas</span><span className="font-semibold text-gray-900">15 pts</span></div>
-              <div className="flex justify-between"><span>1 linha</span><span className="font-semibold text-gray-900">5 pts</span></div>
+              <div className="flex justify-between"><span>Cada pedido no mês</span><span className="font-semibold text-gray-900">+3 pts</span></div>
             </div>
           </div>
           {/* Valor */}
           <div>
-            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Valor no mês <span className="text-gray-400 font-normal normal-case">(até 30 pts)</span></div>
+            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Valor no mês</div>
             <div className="space-y-1 text-xs text-gray-600">
-              <div className="flex justify-between"><span>Acima de R$ 5.000</span><span className="font-semibold text-gray-900">30 pts</span></div>
-              <div className="flex justify-between"><span>R$ 3.001 – R$ 5.000</span><span className="font-semibold text-gray-900">24 pts</span></div>
-              <div className="flex justify-between"><span>R$ 1.501 – R$ 3.000</span><span className="font-semibold text-gray-900">18 pts</span></div>
-              <div className="flex justify-between"><span>R$ 501 – R$ 1.500</span><span className="font-semibold text-gray-900">10 pts</span></div>
-              <div className="flex justify-between"><span>Até R$ 500</span><span className="font-semibold text-gray-900">5 pts</span></div>
+              <div className="flex justify-between"><span>A cada R$ 1.000</span><span className="font-semibold text-gray-900">+1 pt</span></div>
             </div>
           </div>
           {/* Inadimplência + Níveis */}
           <div className="space-y-4">
             <div>
-              <div className="text-xs font-bold text-red-600 mb-2 uppercase tracking-wide">Inadimplência <span className="text-gray-400 font-normal normal-case text-gray-600">(-15 pts)</span></div>
-              <div className="text-xs text-gray-600">Penalidade de 15 pts se houver pendência financeira em aberto.</div>
+              <div className="text-xs font-bold text-red-600 mb-2 uppercase tracking-wide">Inadimplência <span className="text-gray-400 font-normal normal-case text-gray-600">(-5 pts)</span></div>
+              <div className="text-xs text-gray-600">Penalidade de 5 pts se houver pendência financeira em aberto.</div>
             </div>
             <div>
               <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Níveis</div>
               <div className="space-y-1 text-xs">
                 {[
-                  { name: "Bronze",   range: "0–24",   color: "bg-amber-100 text-amber-800" },
-                  { name: "Silver",   range: "25–49",  color: "bg-gray-200 text-gray-700" },
-                  { name: "Gold",     range: "50–69",  color: "bg-yellow-100 text-yellow-800" },
-                  { name: "Platinum", range: "70–84",  color: "bg-purple-100 text-purple-800" },
-                  { name: "Diamante", range: "85–100", color: "bg-cyan-100 text-cyan-800" },
+                  { name: "Bronze",   range: "0–14",  color: "bg-amber-100 text-amber-800" },
+                  { name: "Silver",   range: "15–19", color: "bg-gray-200 text-gray-700" },
+                  { name: "Gold",     range: "20–24", color: "bg-yellow-100 text-yellow-800" },
+                  { name: "Platinum", range: "25–29", color: "bg-purple-100 text-purple-800" },
+                  { name: "Diamante", range: "30+",   color: "bg-cyan-100 text-cyan-800" },
                 ].map(l => (
                   <div key={l.name} className="flex items-center gap-2">
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${l.color}`}>{l.name}</span>
@@ -399,17 +398,22 @@ export default function RankingPage() {
           {data.inactivos.length === 0 && (
             <div className="text-center py-12 text-gray-400 text-sm">Nenhum cliente inativo identificado.</div>
           )}
-          {data.inactivos.map(c => (
-            <div key={c.id} className="bg-white rounded-lg border border-orange-200 p-4 flex items-center justify-between gap-4 flex-wrap">
-              <div>
-                <p className="text-sm font-semibold text-gray-800">{c.name}</p>
-                <p className="text-xs text-gray-500">Última compra: {fmt(c.prevValue)} no mês anterior</p>
+          {data.inactivos.map(c => {
+            const meses = c.mesesInativos ?? 1;
+            const cor = meses >= 4 ? "border-red-300 bg-red-50" : meses >= 2 ? "border-orange-200 bg-orange-50" : "border-yellow-200 bg-yellow-50";
+            const badge = meses >= 4 ? "bg-red-100 text-red-700 border-red-200" : meses >= 2 ? "bg-orange-100 text-orange-700 border-orange-200" : "bg-yellow-100 text-yellow-700 border-yellow-200";
+            return (
+              <div key={c.id} className={`rounded-lg border p-4 flex items-center justify-between gap-4 flex-wrap ${cor}`}>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{c.name}</p>
+                  {c.prevValue > 0 && <p className="text-xs text-gray-500">Último pedido: {fmt(c.prevValue)}</p>}
+                </div>
+                <span className={`text-xs border px-3 py-1 rounded-full font-medium ${badge}`}>
+                  Inativo há {meses} {meses === 1 ? "mês" : "meses"}
+                </span>
               </div>
-              <span className="text-xs bg-orange-50 text-orange-700 border border-orange-200 px-3 py-1 rounded-full">
-                Cliente inativo este mês — fazer reposição
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

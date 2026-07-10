@@ -32,6 +32,9 @@ export default function RootLayout({
             <a href="/resumo" className="text-sm text-gray-600 hover:text-blue-700">
               Resumo
             </a>
+            <a href="/comissao" className="text-sm text-gray-600 hover:text-blue-700">
+              Comissão
+            </a>
             <a href="/admin" className="text-sm text-gray-400 hover:text-blue-700 ml-auto">
               ⚙ Admin
             </a>

@@ -2,16 +2,16 @@
 import { useEffect, useState, useCallback } from "react";
 
 type Vendedor = {
-  id: string; nome: string; totalClientes: number;
+  id: string; nome: string; totalClientes: number; clientesMes: number;
   totalPeriodo: number; totalMes: number; totalTrim: number; totalSem: number; totalAno: number;
-  metaMes: number; metaTrimestre: number; metaSemestre: number; metaAnual: number;
-  pctMes: number|null; pctTrim: number|null; pctSem: number|null; pctAno: number|null;
+  metaMes: number; metaTrimestre: number; metaSemestre: number; metaAnual: number; metaClientes: number;
+  pctMes: number|null; pctTrim: number|null; pctSem: number|null; pctAno: number|null; pctClientes: number|null;
 };
 type MesData = { mes: string; total: number; count: number };
 type ClienteCarteira = {
   id: string; nome: string; email: string; historico: MesData[];
   metaMes: number; realizadoPeriodo: number; pctMeta: number|null;
-  comprou: boolean; lines: number[]; ultimaCompra: string|null;
+  comprou: boolean; mesesSemCompra: number; lines: number[]; ultimaCompra: string|null;
 };
 
 const PERIODOS = [
@@ -43,8 +43,8 @@ function getLast12Months() {
   });
 }
 
-function PctBar({ pct, label, meta }: { pct: number|null; label: string; meta: number }) {
-  if (!pct || meta === 0) return null;
+function PctBar({ pct, label, metaLabel }: { pct: number|null; label: string; metaLabel: string }) {
+  if (pct === null) return null;
   const capped = Math.min(pct, 100);
   const color = pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-blue-500" : pct >= 40 ? "bg-yellow-400" : "bg-red-400";
   return (
@@ -56,7 +56,7 @@ function PctBar({ pct, label, meta }: { pct: number|null; label: string; meta: n
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color} transition-all`} style={{width:`${capped}%`}} />
       </div>
-      <div className="text-xs text-gray-400 mt-0.5">meta: {fmt(meta)}</div>
+      <div className="text-xs text-gray-400 mt-0.5">meta: {metaLabel}</div>
     </div>
   );
 }
@@ -95,19 +95,18 @@ export default function MetasPage() {
   const [loadingCarteira, setLoadingCarteira] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todos"|"ativos"|"inativos">("todos");
-  const [periodo, setPeriodo] = useState("mes");
-  const [customInicio, setCustomInicio] = useState("");
-  const [customFim, setCustomFim] = useState("");
+  const hoje = new Date(Date.now() - 3*60*60*1000);
+  const mesAtualYM = `${hoje.getUTCFullYear()}-${String(hoje.getUTCMonth()+1).padStart(2,"0")}`;
+  const [mesSel, setMesSel] = useState(mesAtualYM);
 
   const buildUrl = useCallback((base: string, vId?: string) => {
-    const params = new URLSearchParams({ periodo });
+    const [y, m] = mesSel.split("-").map(Number);
+    const inicio = `${y}-${String(m).padStart(2,"0")}-01`;
+    const fim = new Date(y, m, 0).toISOString().slice(0,10);
+    const params = new URLSearchParams({ periodo: "custom", inicio, fim });
     if (vId) params.set("vendedor", vId);
-    if (periodo === "custom" && customInicio && customFim) {
-      params.set("inicio", customInicio);
-      params.set("fim", customFim);
-    }
     return `${base}?${params}`;
-  }, [periodo, customInicio, customFim]);
+  }, [mesSel]);
 
   const loadVendedores = useCallback(() => {
     setLoading(true);
@@ -138,10 +137,9 @@ export default function MetasPage() {
   });
 
   const totalRealizado = filtered.reduce((s,c)=>s+c.realizadoPeriodo,0);
-  const totalMeta = filtered.reduce((s,c)=>s+c.metaMes,0);
-  const mesAtual = new Date().toISOString().slice(0,7);
-
-  const periodoLabel = PERIODOS.find(p=>p.key===periodo)?.label ?? "Período";
+  const totalMeta = selectedVendedor?.metaMes ?? filtered.reduce((s,c)=>s+c.metaMes,0);
+  const [mesSelAno, mesSelMes] = mesSel.split("-").map(Number);
+  const mesLabel = new Date(mesSelAno, mesSelMes - 1, 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
   if (loading) return <div className="text-gray-500 text-sm">Carregando...</div>;
 
@@ -152,24 +150,21 @@ export default function MetasPage() {
           <h1 className="text-2xl font-bold text-gray-900">Metas de Vendas</h1>
           <p className="text-sm text-gray-500 mt-1">Carteira por vendedor</p>
         </div>
-        {/* Seletor de período */}
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-1 flex-wrap">
-            {PERIODOS.map(p => (
-              <button key={p.key} onClick={() => { setPeriodo(p.key); setSelectedVendedor(null); setCarteira([]); }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${periodo===p.key ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-          {periodo === "custom" && (
-            <div className="flex gap-2 items-center">
-              <input type="date" value={customInicio} onChange={e=>setCustomInicio(e.target.value)} className="border rounded px-2 py-1 text-sm" />
-              <span className="text-gray-400 text-sm">até</span>
-              <input type="date" value={customFim} onChange={e=>setCustomFim(e.target.value)} className="border rounded px-2 py-1 text-sm" />
-              <button onClick={loadVendedores} className="bg-blue-600 text-white text-sm px-3 py-1 rounded">Aplicar</button>
-            </div>
-          )}
+        {/* Seletor de mês com setas */}
+        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <button onClick={() => {
+            const [y, m] = mesSel.split("-").map(Number);
+            const d = new Date(y, m - 2, 1);
+            setMesSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);
+            setSelectedVendedor(null); setCarteira([]);
+          }} className="px-3 py-2 text-gray-500 hover:bg-gray-100 transition-colors text-lg font-light">‹</button>
+          <span className="px-3 py-2 text-sm font-medium text-gray-800 min-w-[130px] text-center capitalize">{mesLabel}</span>
+          <button onClick={() => {
+            const [y, m] = mesSel.split("-").map(Number);
+            const d = new Date(y, m, 1);
+            const next = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+            if (next <= mesAtualYM) { setMesSel(next); setSelectedVendedor(null); setCarteira([]); }
+          }} className={`px-3 py-2 text-lg font-light transition-colors ${mesSel >= mesAtualYM ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-100"}`}>›</button>
         </div>
       </div>
 
@@ -177,25 +172,20 @@ export default function MetasPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {vendedores.map(v => {
             // Meta e % referentes ao período selecionado
-            const metaRef = periodo === "trimestre" ? v.metaTrimestre
-              : periodo === "semestre" ? v.metaSemestre
-              : periodo === "ano" ? v.metaAnual
-              : v.metaMes;
-            const pctRef = periodo === "trimestre" ? v.pctTrim
-              : periodo === "semestre" ? v.pctSem
-              : periodo === "ano" ? v.pctAno
-              : v.pctMes;
+            const metaRef = v.metaMes;
+            const pctRef = metaRef > 0 ? Math.round((v.totalPeriodo / metaRef) * 100) : null;
             return (
               <button key={v.id} onClick={() => selectVendedor(v)}
                 className="bg-white border border-gray-200 rounded-xl p-5 text-left hover:border-blue-400 hover:shadow-md transition-all">
                 <div className="font-semibold text-gray-900 text-lg">{v.nome}</div>
-                <div className="text-sm text-gray-500 mt-0.5">{v.totalClientes} clientes</div>
+                <div className="text-sm text-gray-500 mt-0.5">{v.clientesMes} clientes atendidos no mês</div>
 
                 <div className="mt-3 text-blue-600 font-bold text-2xl">{fmt(v.totalPeriodo)}</div>
-                <div className="text-xs text-gray-400 mb-3">{periodoLabel}</div>
+                <div className="text-xs text-gray-400 mb-3">{mesLabel}</div>
 
-                <div className="border-t border-gray-100 pt-3">
-                  <PctBar pct={pctRef} label="% da meta" meta={metaRef} />
+                <div className="border-t border-gray-100 pt-3 space-y-0">
+                  <PctBar pct={pctRef} label="% da meta de faturamento" metaLabel={metaRef > 0 ? fmt(metaRef) : "sem meta"} />
+                  <PctBar pct={v.pctClientes} label="% da meta de clientes" metaLabel={v.metaClientes > 0 ? `${v.metaClientes} clientes` : "sem meta"} />
                 </div>
               </button>
             );
@@ -208,22 +198,30 @@ export default function MetasPage() {
               className="text-sm text-blue-600 hover:underline">← Voltar</button>
             <div>
               <h2 className="text-xl font-bold text-gray-900">{selectedVendedor.nome}</h2>
-              <p className="text-sm text-gray-500">{carteira.length} clientes · {periodoLabel}</p>
+              <p className="text-sm text-gray-500">{carteira.length} clientes · {mesLabel}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
               <div className="text-xs text-blue-600 font-medium">Realizado</div>
-              <div className="text-2xl font-bold text-blue-700 mt-1">{fmt(totalRealizado)}</div>
+              <div className="text-xl font-bold text-blue-700 mt-1">{fmt(totalRealizado)}</div>
             </div>
             <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
-              <div className="text-xs text-orange-600 font-medium">Meta projetada (mês)</div>
-              <div className="text-2xl font-bold text-orange-700 mt-1">{fmt(totalMeta)}</div>
+              <div className="text-xs text-orange-600 font-medium">Meta do mês</div>
+              <div className="text-xl font-bold text-orange-700 mt-1">{fmt(totalMeta)}</div>
+            </div>
+            <div className={`rounded-xl p-4 border ${totalRealizado>=totalMeta ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}>
+              <div className={`text-xs font-medium ${totalRealizado>=totalMeta ? "text-green-600" : "text-red-500"}`}>
+                {totalRealizado>=totalMeta ? "Acima da meta" : "Falta atingir"}
+              </div>
+              <div className={`text-xl font-bold mt-1 ${totalRealizado>=totalMeta ? "text-green-700" : "text-red-600"}`}>
+                {totalMeta>0 ? fmt(Math.abs(totalMeta-totalRealizado)) : "—"}
+              </div>
             </div>
             <div className={`rounded-xl p-4 border ${totalRealizado>=totalMeta ? "bg-green-50 border-green-100" : "bg-gray-50 border-gray-100"}`}>
               <div className="text-xs text-gray-600 font-medium">% da meta</div>
-              <div className={`text-2xl font-bold mt-1 ${totalRealizado>=totalMeta ? "text-green-600" : "text-gray-700"}`}>
+              <div className={`text-xl font-bold mt-1 ${totalRealizado>=totalMeta ? "text-green-600" : "text-gray-700"}`}>
                 {totalMeta>0 ? Math.round((totalRealizado/totalMeta)*100) : 0}%
               </div>
             </div>
@@ -254,7 +252,7 @@ export default function MetasPage() {
               </div>
               <div className="grid grid-cols-3 gap-4 mt-4">
                 <div>
-                  <div className="text-xs text-gray-500">Realizado ({periodoLabel})</div>
+                  <div className="text-xs text-gray-500">Realizado ({mesLabel})</div>
                   <div className="font-bold text-blue-600 text-lg">{fmt(selectedCliente.realizadoPeriodo)}</div>
                 </div>
                 <div>
@@ -282,7 +280,7 @@ export default function MetasPage() {
                 <div className="grid grid-cols-4 gap-1">
                   {getLast12Months().map(m => {
                     const d = selectedCliente.historico.find(h=>h.mes===m);
-                    const isCurrent = m === mesAtual;
+                    const isCurrent = m === mesAtualYM;
                     return (
                       <div key={m} className={`rounded-lg p-2 text-center text-xs ${isCurrent ? "bg-blue-50 border border-blue-200" : "bg-gray-50"}`}>
                         <div className="text-gray-400">{getMesLabel(m)}</div>
@@ -334,7 +332,9 @@ export default function MetasPage() {
                     <td className="px-4 py-3 text-center">
                       {c.comprou
                         ? <span className="bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">Ativo</span>
-                        : <span className="bg-red-100 text-red-600 text-xs font-medium px-2 py-0.5 rounded-full">Inativo</span>}
+                        : <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${(c.mesesSemCompra||1) >= 4 ? "bg-red-200 text-red-700" : (c.mesesSemCompra||1) >= 2 ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"}`}>
+                            Inativo há {c.mesesSemCompra||1} {(c.mesesSemCompra||1)===1?"mês":"meses"}
+                          </span>}
                     </td>
                   </tr>
                 ))}

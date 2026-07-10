@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 
   // Totais por vendedor para cada período
   type VendedorStats = {
-    id: string; nome: string; clientes: Set<string>;
+    id: string; nome: string; clientes: Set<string>; clientesMes: Set<string>;
     totalPeriodo: number; totalMes: number; totalTrim: number; totalSem: number; totalAno: number;
   };
   const vendedoresMap = new Map<string, VendedorStats>();
@@ -89,13 +89,13 @@ export async function GET(req: NextRequest) {
     const vId = raw?.vendedor?.id;
     if (!vId) continue;
     if (!vendedoresMap.has(vId)) vendedoresMap.set(vId, {
-      id: vId, nome: raw?.vendedor?.nome ?? "—", clientes: new Set(),
+      id: vId, nome: raw?.vendedor?.nome ?? "—", clientes: new Set(), clientesMes: new Set(),
       totalPeriodo: 0, totalMes: 0, totalTrim: 0, totalSem: 0, totalAno: 0,
     });
     const v = vendedoresMap.get(vId)!;
     const d = s.sale_date ?? "";
     const amt = s.total_amount ?? 0;
-    if (d >= inicio && d <= fim) v.totalPeriodo += amt;
+    if (d >= inicio && d <= fim) { v.totalPeriodo += amt; if (raw?.cliente?.id) v.clientesMes.add(raw.cliente.id); }
     if (d >= inicioMes) v.totalMes += amt;
     if (d >= inicioTrim) v.totalTrim += amt;
     if (d >= inicioSem) v.totalSem += amt;
@@ -105,11 +105,11 @@ export async function GET(req: NextRequest) {
 
   // Buscar metas manuais dos vendedores (se existirem) e quais estão excluídos
   const { data: goalsRows } = await supabaseAdmin
-    .from("vendedor_goals").select("vendedor_id, meta_mensal, excluido").eq("company_id", companyId);
-  const goalsMap = new Map<string, number>();
+    .from("vendedor_goals").select("vendedor_id, meta_mensal, meta_clientes, excluido").eq("company_id", companyId);
+  const goalsMap = new Map<string, { metaMensal: number; metaClientes: number }>();
   const excludedIds = new Set<string>();
   for (const g of goalsRows ?? []) {
-    goalsMap.set(g.vendedor_id, Number(g.meta_mensal) || 0);
+    goalsMap.set(g.vendedor_id, { metaMensal: Number(g.meta_mensal) || 0, metaClientes: Number(g.meta_clientes) || 0 });
     if (g.excluido) excludedIds.add(g.vendedor_id);
   }
 
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
   // Upsert vendedores detectados nas vendas para a tabela de goals (para aparecer no admin)
   const upsertData = Array.from(vendedoresMap.values()).map(v => ({
     company_id: companyId, vendedor_id: v.id, vendedor_nome: v.nome,
-    meta_mensal: goalsMap.get(v.id) ?? 0,
+    meta_mensal: goalsMap.get(v.id)?.metaMensal ?? 0,
     updated_at: new Date().toISOString(),
   }));
   if (upsertData.length > 0) {
@@ -132,7 +132,8 @@ export async function GET(req: NextRequest) {
   const mesesCount6 = 6;
 
   const vendedores = Array.from(vendedoresMap.values()).map(v => {
-    const manualMensal = goalsMap.get(v.id) ?? 0;
+    const manualMensal = goalsMap.get(v.id)?.metaMensal ?? 0;
+    const metaClientesManual = goalsMap.get(v.id)?.metaClientes ?? 0;
     const total6m = (salesHist ?? [])
       .filter(s => {
         const raw = s.raw_json as { vendedor?: { id?: string } } | null;
@@ -149,17 +150,20 @@ export async function GET(req: NextRequest) {
     return {
       id: v.id, nome: v.nome,
       totalClientes: v.clientes.size,
+      clientesMes: v.clientesMes.size,
       totalPeriodo: v.totalPeriodo,
       totalMes: v.totalMes, totalTrim: v.totalTrim, totalSem: v.totalSem, totalAno: v.totalAno,
       metaMes, metaTrimestre, metaSemestre, metaAnual, metaManual,
+      metaClientes: metaClientesManual,
       pctMes: metaMes > 0 ? Math.round((v.totalMes / metaMes) * 100) : null,
       pctTrim: metaTrimestre > 0 ? Math.round((v.totalTrim / metaTrimestre) * 100) : null,
       pctSem: metaSemestre > 0 ? Math.round((v.totalSem / metaSemestre) * 100) : null,
       pctAno: metaAnual > 0 ? Math.round((v.totalAno / metaAnual) * 100) : null,
+      pctClientes: metaClientesManual > 0 ? Math.round((v.clientesMes.size / metaClientesManual) * 100) : null,
     };
   }).sort((a, b) => b.totalPeriodo - a.totalPeriodo);
 
-  if (!vendedorId) return NextResponse.json({ vendedores, periodo, inicio, fim, _debug: { hoje, inicioMes, inicioTrim, inicioQuery, allSalesCount: allSales?.length } });
+  if (!vendedorId) return NextResponse.json({ vendedores, periodo, inicio, fim });
 
   // === Carteira de um vendedor ===
   const vendasVendedor = (allSales ?? []).filter(s => {
@@ -205,16 +209,19 @@ export async function GET(req: NextRequest) {
     clientesMap.get(cid)?.saleIdsPeriodo.push(s.id);
   }
 
-  // Buscar itens para classificar linhas
-  const allSaleIds = vendasHistorico.map(s => s.id).slice(0, 500);
-  if (allSaleIds.length > 0) {
+  // Buscar itens para classificar linhas — em lotes de 100 para não exceder limite de URL
+  const allSaleIdsSet = new Set([...vendasVendedor.map(s => s.id), ...vendasHistorico.map(s => s.id)]);
+  const allSaleIds = Array.from(allSaleIdsSet);
+  const saleClientMap = new Map<string, string>();
+  for (const s of [...vendasHistorico, ...vendasVendedor]) {
+    const raw = s.raw_json as { cliente?: { id?: string } } | null;
+    saleClientMap.set(s.id, raw?.cliente?.id ?? "unknown");
+  }
+  const CHUNK = 100;
+  for (let i = 0; i < allSaleIds.length; i += CHUNK) {
+    const chunk = allSaleIds.slice(i, i + CHUNK);
     const { data: items } = await supabaseAdmin.from("sale_items")
-      .select("sale_id, description, raw_json").in("sale_id", allSaleIds).neq("description", "__empty__");
-    const saleClientMap = new Map<string, string>();
-    for (const s of vendasHistorico) {
-      const raw = s.raw_json as { cliente?: { id?: string } } | null;
-      saleClientMap.set(s.id, raw?.cliente?.id ?? "unknown");
-    }
+      .select("sale_id, description, raw_json").in("sale_id", chunk).neq("description", "__empty__");
     for (const item of items ?? []) {
       const cid = saleClientMap.get(item.sale_id);
       if (!cid) continue;
@@ -236,16 +243,31 @@ export async function GET(req: NextRequest) {
   const carteira = Array.from(clientesMap.values()).map(c => {
     const historico = Array.from(c.meses.values()).sort((a,b) => a.mes.localeCompare(b.mes));
     const ultimos3 = mesesCompletos3.map(m => c.meses.get(m)?.total ?? 0);
-    const mediaUlt3 = ultimos3.reduce((s,v) => s+v, 0) / 3;
+    const somaUlt3 = ultimos3.reduce((s,v) => s+v, 0);
+    const mediaUlt3 = somaUlt3 > 0
+      ? somaUlt3 / 3
+      : historico.length > 0
+        ? historico.reduce((s,m) => s + m.total, 0) / historico.length
+        : 0;
     const metaMes = Math.round(mediaUlt3 * 1.05);
     const realizadoPeriodo = (c.saleIdsPeriodo.length > 0)
       ? vendasVendedor.filter(s => c.saleIdsPeriodo.includes(s.id)).reduce((acc,s) => acc + (s.total_amount ?? 0), 0)
       : 0;
     const comprou = c.saleIdsPeriodo.length > 0;
-    const pctMeta = metaMes > 0 && periodo === "mes" ? Math.round((realizadoPeriodo / metaMes) * 100) : null;
+    const pctMeta = metaMes > 0 ? Math.round((realizadoPeriodo / metaMes) * 100) : null;
+    // Calcular meses consecutivos sem compra (contando para trás a partir do mês atual)
+    let mesesSemCompra = 0;
+    if (!comprou) {
+      for (let i = 1; i <= 12; i++) {
+        const d = new Date(anoAtual, mesAtual - 1 - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+        if (c.meses.has(key)) break;
+        mesesSemCompra++;
+      }
+    }
     return {
       id: c.id, nome: c.nome, email: c.email, historico,
-      metaMes, realizadoPeriodo, pctMeta, comprou,
+      metaMes, realizadoPeriodo, pctMeta, comprou, mesesSemCompra,
       lines: Array.from(c.lines).sort(), ultimaCompra: historico.at(-1)?.mes ?? null,
     };
   })

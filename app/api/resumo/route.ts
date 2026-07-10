@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 const CORES = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16"];
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { data: company } = await supabaseAdmin.from("companies").select("id").limit(1).single();
   if (!company) return NextResponse.json({ error: "Não conectado" }, { status: 400 });
   const companyId = company.id;
@@ -92,11 +92,20 @@ export async function GET() {
     mesData.total = Math.round(mesData.total);
   }
 
-  // Realizado e meta por trimestre/semestre/ano (com base no mês atual)
-  const trimAtualIdx = Math.floor((mesAtual - 1) / 3); // 0-3
-  const trimMeses = [trimAtualIdx * 3, trimAtualIdx * 3 + 1, trimAtualIdx * 3 + 2];
+  // Realizado e meta por trimestre/semestre/ano
+  const trimOffset = parseInt(req.nextUrl.searchParams.get("trimOffset") ?? "0");
+  const semOffset = parseInt(req.nextUrl.searchParams.get("semOffset") ?? "0");
+
+  const trimAtualIdx = Math.floor((mesAtual - 1) / 3);
+  const trimIdx = Math.max(0, Math.min(3, trimAtualIdx - trimOffset));
+  const trimMeses = [trimIdx * 3, trimIdx * 3 + 1, trimIdx * 3 + 2];
+
   const semAtualIdx = mesAtual <= 6 ? 0 : 1;
-  const semMeses = semAtualIdx === 0 ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
+  const semIdx = Math.max(0, Math.min(1, semAtualIdx - semOffset));
+  const semMeses = semIdx === 0 ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
+
+  const trimLabel = `T${trimIdx + 1}`;
+  const semLabel = semIdx === 0 ? "1º Semestre" : "2º Semestre";
 
   const realizadoAno = porMes.reduce((s, m) => s + m.total, 0);
   const realizadoTrim = trimMeses.reduce((s, i) => s + porMes[i].total, 0);
@@ -108,6 +117,7 @@ export async function GET() {
     ano: anoAtual, mesAtual,
     metaAnual, metaTrim, metaSem,
     realizadoAno, realizadoTrim, realizadoSem,
+    trimLabel, semLabel, trimIdx, semIdx, trimAtualIdx, semAtualIdx,
     vendedores, meses: porMes,
   });
 }
