@@ -196,7 +196,7 @@ export default function MetasPage() {
           </div>
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <p className="text-xs font-medium text-gray-500 mb-1">Clientes atendidos</p>
-            <p className="text-xl font-bold text-gray-800">{kpis.totalClientes.toLocaleString("pt-BR")}</p>
+            <p className="text-xl font-bold text-gray-800">{vendedores.reduce((s, v) => s + v.clientesMes, 0).toLocaleString("pt-BR")}</p>
             <p className="text-xs text-gray-400 mt-0.5">{mesLabel}</p>
           </div>
         </div>
