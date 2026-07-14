@@ -19,6 +19,7 @@ export async function syncCustomers(companyId: string): Promise<number> {
   const accessToken = await getValidAccessToken(companyId);
   let pagina = 1;
   let total = 0;
+  const seen = new Set<string>();
 
   while (true) {
     const res = await contaAzulFetch(
@@ -36,11 +37,11 @@ export async function syncCustomers(companyId: string): Promise<number> {
 
     if (items.length === 0) break;
 
-    const seen = new Set<string>();
     const rows = items
       .filter((p) => {
-        if (seen.has(p.id)) return false;
-        seen.add(p.id);
+        const id = String(p.id);
+        if (seen.has(id)) return false;
+        seen.add(id);
         return true;
       })
       .map((p) => ({
