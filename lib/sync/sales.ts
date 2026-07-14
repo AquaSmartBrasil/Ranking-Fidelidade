@@ -51,6 +51,7 @@ export async function syncSales(
 
   let pagina = 1;
   let total = 0;
+  const idsCA = new Set<string>(); // todos os IDs recebidos do CA no período
 
   while (true) {
     const res = await contaAzulFetch(
@@ -86,6 +87,7 @@ export async function syncSales(
       .filter((s) => {
         if (seen.has(s.id)) return false;
         seen.add(s.id);
+        idsCA.add(String(s.id));
         // Excluir orçamentos e cancelados
         if (s.tipo === "SALE_PROPOSAL") return false;
         const status = s.situacao?.nome ?? "";
@@ -117,6 +119,22 @@ export async function syncSales(
     total += items.length;
     if (items.length < 100) break;
     pagina++;
+  }
+
+  // Remover do banco vendas do período que não existem mais no CA
+  const { data: dbSales } = await supabaseAdmin
+    .from("sales")
+    .select("id, conta_azul_id")
+    .eq("company_id", companyId)
+    .gte("sale_date", inicio)
+    .lte("sale_date", fim);
+
+  const idsParaDeletar = (dbSales ?? [])
+    .filter(s => !idsCA.has(s.conta_azul_id))
+    .map(s => s.id);
+
+  if (idsParaDeletar.length > 0) {
+    await supabaseAdmin.from("sales").delete().in("id", idsParaDeletar);
   }
 
   return total;
