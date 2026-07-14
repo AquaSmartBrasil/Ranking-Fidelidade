@@ -240,7 +240,27 @@ export async function GET(req: NextRequest) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
   });
 
-  const carteira = Array.from(clientesMap.values()).map(c => {
+  // Mesclar clientes com mesmo nome (cadastros duplicados no Conta Azul)
+  const byNome = new Map<string, typeof clientesMap extends Map<string, infer V> ? V : never>();
+  for (const c of clientesMap.values()) {
+    const key = c.nome.trim().toUpperCase();
+    const existing = byNome.get(key);
+    if (existing) {
+      // Mesclar meses
+      for (const [mes, data] of c.meses) {
+        const ex = existing.meses.get(mes);
+        if (ex) { ex.total += data.total; ex.count += data.count; }
+        else existing.meses.set(mes, { ...data });
+      }
+      existing.saleIdsPeriodo.push(...c.saleIdsPeriodo);
+      existing.saleIdsHistorico.push(...c.saleIdsHistorico);
+      c.lines.forEach(l => existing.lines.add(l));
+    } else {
+      byNome.set(key, c);
+    }
+  }
+
+  const carteira = Array.from(byNome.values()).map(c => {
     const historico = Array.from(c.meses.values()).sort((a,b) => a.mes.localeCompare(b.mes));
     const ultimos3 = mesesCompletos3.map(m => c.meses.get(m)?.total ?? 0);
     const somaUlt3 = ultimos3.reduce((s,v) => s+v, 0);
