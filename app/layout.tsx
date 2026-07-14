@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import SwRegister from "./SwRegister";
 
 export const metadata: Metadata = {
   title: "AquaSmart Dashboard",
@@ -27,6 +28,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="bg-gray-50 text-gray-900 min-h-screen">
+        <SwRegister />
         <nav className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="max-w-5xl mx-auto flex items-center gap-6">
             <span className="font-semibold text-blue-700">Conta Azul Dashboard</span>
