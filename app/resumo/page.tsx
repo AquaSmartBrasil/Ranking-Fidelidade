@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 type VendedorMes = { vendedorId: string; nome: string; cor: string; valor: number; metaMensal: number; pct: number | null };
 type MesData = { mes: number; total: number; metaMes: number; vendedores: VendedorMes[]; fechado: boolean; atual: boolean };
 type Vendedor = { id: string; nome: string; cor: string };
+type ClienteRanking = { name: string; total: number; count: number };
 type ResumoData = {
   ano: number; mesAtual: number;
   metaAnual: number; metaTrim: number; metaSem: number;
@@ -46,6 +47,7 @@ function GoalCard({ label, meta, realizado }: { label: string; meta: number; rea
 
 export default function ResumoPage() {
   const [data, setData] = useState<ResumoData | null>(null);
+  const [ranking, setRanking] = useState<ClienteRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [hoverMes, setHoverMes] = useState<number | null>(null);
   const [trimOffset, setTrimOffset] = useState(0);
@@ -53,8 +55,16 @@ export default function ResumoPage() {
 
   function load(tOff: number, sOff: number) {
     setLoading(true);
-    fetch(`/api/resumo?trimOffset=${tOff}&semOffset=${sOff}`)
-      .then(r => r.json()).then(d => { setData(d); setLoading(false); });
+    const now = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const ano = now.getUTCFullYear();
+    Promise.all([
+      fetch(`/api/resumo?trimOffset=${tOff}&semOffset=${sOff}`).then(r => r.json()),
+      fetch(`/api/dashboard?periodo=ano`).then(r => r.json()),
+    ]).then(([resumo, dash]) => {
+      setData(resumo);
+      setRanking(dash.rankingClientes ?? []);
+      setLoading(false);
+    });
   }
 
   useEffect(() => { load(trimOffset, semOffset); }, [trimOffset, semOffset]);
@@ -229,6 +239,33 @@ export default function ResumoPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Ranking top clientes do ano */}
+      {ranking.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Top 10 clientes · {data.ano}</h2>
+          <div className="space-y-3">
+            {ranking.map((c, i) => {
+              const pct = (c.total / ranking[0].total) * 100;
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 w-4 text-right shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-700 truncate">{c.name}</span>
+                      <span className="text-sm font-medium text-gray-800 ml-2 shrink-0">{fmt(c.total)}</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-400 rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0">{c.count}x</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

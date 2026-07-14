@@ -12,6 +12,7 @@ interface RankingCliente {
   prevValue: number;
   growth: number;
   score: number;
+  hint?: string;
   level: string;
   levelColor: string;
   nextLevel: string | null;
@@ -152,57 +153,23 @@ export default function RankingPage() {
         })}
       </div>
 
-      {/* Regras de pontuação */}
+      {/* Regras de nível */}
       <details className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <summary className="px-5 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:bg-gray-50 select-none flex items-center gap-2">
-          <span>📊</span> Como funciona a pontuação?
+          <span>📊</span> Como funciona o nível?
         </summary>
-        <div className="px-5 pb-5 pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-t border-gray-100">
-          {/* Linhas */}
-          <div>
-            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Mix de linhas</div>
-            <div className="space-y-1 text-xs text-gray-600">
-              <div className="flex justify-between"><span>Cada linha comprada</span><span className="font-semibold text-gray-900">+1 pt</span></div>
+        <div className="px-5 pb-5 pt-2 grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-gray-100">
+          {[
+            { name: "Bronze",   color: "bg-amber-100 text-amber-800",   regra: "Menos de 3 linhas de produto" },
+            { name: "Silver",   color: "bg-gray-200 text-gray-700",     regra: "Comprou as 3 linhas no mês" },
+            { name: "Gold",     color: "bg-yellow-100 text-yellow-800", regra: "3 linhas + mais de 2 pedidos" },
+            { name: "Platinum", color: "bg-purple-100 text-purple-800", regra: "3 linhas + 2+ pedidos + R$ 5.000" },
+          ].map(l => (
+            <div key={l.name} className="space-y-1">
+              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${l.color}`}>{l.name}</span>
+              <p className="text-xs text-gray-500">{l.regra}</p>
             </div>
-          </div>
-          {/* Compras */}
-          <div>
-            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Número de compras</div>
-            <div className="space-y-1 text-xs text-gray-600">
-              <div className="flex justify-between"><span>Cada pedido no mês</span><span className="font-semibold text-gray-900">+3 pts</span></div>
-            </div>
-          </div>
-          {/* Valor */}
-          <div>
-            <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Valor no mês</div>
-            <div className="space-y-1 text-xs text-gray-600">
-              <div className="flex justify-between"><span>A cada R$ 1.000</span><span className="font-semibold text-gray-900">+1 pt</span></div>
-            </div>
-          </div>
-          {/* Inadimplência + Níveis */}
-          <div className="space-y-4">
-            <div>
-              <div className="text-xs font-bold text-red-600 mb-2 uppercase tracking-wide">Inadimplência <span className="text-gray-400 font-normal normal-case text-gray-600">(-5 pts)</span></div>
-              <div className="text-xs text-gray-600">Penalidade de 5 pts se houver pendência financeira em aberto.</div>
-            </div>
-            <div>
-              <div className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Níveis</div>
-              <div className="space-y-1 text-xs">
-                {[
-                  { name: "Bronze",   range: "0–14",  color: "bg-amber-100 text-amber-800" },
-                  { name: "Silver",   range: "15–19", color: "bg-gray-200 text-gray-700" },
-                  { name: "Gold",     range: "20–24", color: "bg-yellow-100 text-yellow-800" },
-                  { name: "Platinum", range: "25–29", color: "bg-purple-100 text-purple-800" },
-                  { name: "Diamante", range: "30+",   color: "bg-cyan-100 text-cyan-800" },
-                ].map(l => (
-                  <div key={l.name} className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${l.color}`}>{l.name}</span>
-                    <span className="text-gray-500">{l.range} pts</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </details>
 
@@ -298,10 +265,6 @@ export default function RankingPage() {
                             {c.lines.length}/3 {c.lines.length === 3 ? "✓" : ""}
                           </p>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className={`text-sm font-bold ${cfg.text}`}>{c.score}</span>
-                          <span className="text-xs text-gray-400"> pts</span>
-                        </td>
                         <td className="px-4 py-3">
                           {c.nextLevel ? (
                             <div>
@@ -309,13 +272,7 @@ export default function RankingPage() {
                                 <span>{c.level}</span>
                                 <span className={LEVEL_CONFIG[c.nextLevel]?.text ?? "text-gray-500"}>{c.nextLevel}</span>
                               </div>
-                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all"
-                                  style={{ width: `${c.progressPct}%`, backgroundColor: c.levelColor }}
-                                />
-                              </div>
-                              <p className="text-[10px] text-gray-400 mt-0.5">faltam {c.pointsToNext} pts</p>
+                              {c.hint && <p className="text-[10px] text-gray-400 mt-0.5">{c.hint}</p>}
                             </div>
                           ) : (
                             <div className="flex items-center gap-1">
@@ -355,7 +312,7 @@ export default function RankingPage() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{c.level}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-800 truncate">{c.name}</p>
-                      <p className="text-xs text-gray-500 mb-1">{fmt(c.value)} · {c.purchases}x compras · {c.score} pts</p>
+                      <p className="text-xs text-gray-500 mb-1">{fmt(c.value)} · {c.purchases}x compras</p>
                       <div className="flex gap-1.5 items-center">
                         {LINES.map(line => {
                           const has = c.lines.includes(line.id);
@@ -377,8 +334,8 @@ export default function RankingPage() {
                 {c.nextLevel && (
                   <div className="mt-3">
                     <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                      <span>{c.level} · {c.score} pts</span>
-                      <span className={LEVEL_CONFIG[c.nextLevel]?.text}>{c.nextLevel} em {c.score + c.pointsToNext} pts</span>
+                      <span>{c.level}</span>
+                      <span className={LEVEL_CONFIG[c.nextLevel]?.text}>próximo: {c.nextLevel}</span>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${c.progressPct}%`, backgroundColor: c.levelColor }} />

@@ -8,6 +8,7 @@ type Vendedor = {
   pctMes: number|null; pctTrim: number|null; pctSem: number|null; pctAno: number|null; pctClientes: number|null;
 };
 type MesData = { mes: string; total: number; count: number };
+type ResumoKpis = { totalVendas: number; receitaTotal: number; ticketMedio: number; totalClientes: number };
 type ClienteCarteira = {
   id: string; nome: string; email: string; historico: MesData[];
   metaMes: number; realizadoPeriodo: number; pctMeta: number|null;
@@ -87,6 +88,7 @@ function MiniBarChart({ historico, meta }: { historico: MesData[]; meta: number 
 }
 
 export default function MetasPage() {
+  const [kpis, setKpis] = useState<ResumoKpis|null>(null);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [selectedVendedor, setSelectedVendedor] = useState<Vendedor|null>(null);
   const [carteira, setCarteira] = useState<ClienteCarteira[]>([]);
@@ -110,11 +112,18 @@ export default function MetasPage() {
 
   const loadVendedores = useCallback(() => {
     setLoading(true);
-    fetch(buildUrl("/api/metas")).then(r=>r.json()).then(d => {
-      setVendedores(d.vendedores ?? []);
+    const [y, m] = mesSel.split("-").map(Number);
+    const inicio = `${y}-${String(m).padStart(2,"0")}-01`;
+    const fim = new Date(y, m, 0).toISOString().slice(0,10);
+    Promise.all([
+      fetch(buildUrl("/api/metas")).then(r=>r.json()),
+      fetch(`/api/dashboard?periodo=custom&inicio=${inicio}&fim=${fim}`).then(r=>r.json()),
+    ]).then(([metas, dash]) => {
+      setVendedores(metas.vendedores ?? []);
+      setKpis(dash.kpis ?? null);
       setLoading(false);
     });
-  }, [buildUrl]);
+  }, [buildUrl, mesSel]);
 
   useEffect(() => { loadVendedores(); }, [loadVendedores]);
 
@@ -167,6 +176,31 @@ export default function MetasPage() {
           }} className={`px-3 py-2 text-lg font-light transition-colors ${mesSel >= mesAtualYM ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-100"}`}>›</button>
         </div>
       </div>
+
+      {kpis && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-medium text-gray-500 mb-1">Vendas</p>
+            <p className="text-xl font-bold text-gray-800">{kpis.totalVendas.toLocaleString("pt-BR")}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{mesLabel}</p>
+          </div>
+          <div className="bg-blue-600 border border-blue-600 rounded-xl p-4">
+            <p className="text-xs font-medium text-blue-100 mb-1">Receita</p>
+            <p className="text-xl font-bold text-white">{fmt(kpis.receitaTotal)}</p>
+            <p className="text-xs text-blue-200 mt-0.5">{mesLabel}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-medium text-gray-500 mb-1">Ticket médio</p>
+            <p className="text-xl font-bold text-gray-800">{fmt(kpis.ticketMedio)}</p>
+            <p className="text-xs text-gray-400 mt-0.5">por venda</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-medium text-gray-500 mb-1">Clientes atendidos</p>
+            <p className="text-xl font-bold text-gray-800">{kpis.totalClientes.toLocaleString("pt-BR")}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{mesLabel}</p>
+          </div>
+        </div>
+      )}
 
       {!selectedVendedor ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

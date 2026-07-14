@@ -18,30 +18,32 @@ function classifyByName(name: string): 1 | 2 | 3 | null {
   return null;
 }
 
-// Modelo: 1pt/linha + 3pts/compra + 3pts/R$1000 - 5pts/inadimplência
 const LEVELS = [
-  { name: "Bronze",   min: 0,  max: 14,  color: "#cd7f32" },
-  { name: "Silver",   min: 15, max: 19,  color: "#9ca3af" },
-  { name: "Gold",     min: 20, max: 24,  color: "#eab308" },
-  { name: "Platinum", min: 25, max: 29,  color: "#8b5cf6" },
-  { name: "Diamante", min: 30, max: Infinity, color: "#06b6d4" },
+  { name: "Bronze",   color: "#cd7f32" },
+  { name: "Silver",   color: "#9ca3af" },
+  { name: "Gold",     color: "#eab308" },
+  { name: "Platinum", color: "#8b5cf6" },
 ];
 
-function calcScore(value: number, purchases: number, lineCount: number, inadimplente: boolean) {
-  const ptLinhas    = lineCount;                           // 1pt por linha
-  const ptCompras   = purchases * 3;                       // 3pts por compra
-  const ptValor     = Math.floor(value / 1000);            // 1pt por R$1000
-  const penalidade  = inadimplente ? 5 : 0;               // -5pts inadimplência
-  return Math.max(0, ptLinhas + ptCompras + ptValor - penalidade);
+function getLevel(value: number, purchases: number, lineCount: number) {
+  if (lineCount >= 3 && purchases > 2 && value > 5000) return LEVELS[3]; // Platinum
+  if (lineCount >= 3 && purchases > 2)                 return LEVELS[2]; // Gold
+  if (lineCount >= 3)                                  return LEVELS[1]; // Silver
+  return LEVELS[0];                                                       // Bronze
 }
 
-function getLevel(score: number) {
-  return LEVELS.find(l => score >= l.min && score <= l.max) ?? LEVELS[0];
-}
-
-function getNextLevel(score: number) {
-  const idx = LEVELS.findIndex(l => score >= l.min && score <= l.max);
+function getNextLevel(value: number, purchases: number, lineCount: number) {
+  const current = getLevel(value, purchases, lineCount);
+  const idx = LEVELS.findIndex(l => l.name === current.name);
   return idx < LEVELS.length - 1 ? LEVELS[idx + 1] : null;
+}
+
+function getNextLevelHint(value: number, purchases: number, lineCount: number): string {
+  const current = getLevel(value, purchases, lineCount);
+  if (current.name === "Bronze") return lineCount < 3 ? `Falta${3 - lineCount === 1 ? "" : "m"} ${3 - lineCount} linha${3 - lineCount === 1 ? "" : "s"}` : "";
+  if (current.name === "Silver") return purchases <= 2 ? `Falta${3 - purchases === 1 ? "" : "m"} ${3 - purchases} compra${3 - purchases === 1 ? "" : "s"}` : "";
+  if (current.name === "Gold")   return value <= 5000  ? `Falta R$${Math.ceil((5001 - value) / 100) * 100} em volume` : "";
+  return "";
 }
 
 export async function GET(req: NextRequest) {
@@ -212,30 +214,27 @@ export async function GET(req: NextRequest) {
     const lineCount = c.lines.size === 0 ? 1 : c.lines.size;
     const mesesAtivos = (clienteMesesAtivos.get(c.id) ?? new Set()).size;
     const inadimplente = clienteInadimplente.get(c.id) ?? false;
-    const score = calcScore(c.value, c.purchases, lineCount, inadimplente);
-    const level = getLevel(score);
-    const nextLevel = getNextLevel(score);
-    const pointsToNext = nextLevel ? nextLevel.min - score : 0;
-    const progressPct = nextLevel
-      ? Math.round(((score - level.min) / (nextLevel.min - level.min)) * 100)
-      : 100;
+    const level = getLevel(c.value, c.purchases, lineCount);
+    const nextLevel = getNextLevel(c.value, c.purchases, lineCount);
+    const hint = getNextLevelHint(c.value, c.purchases, lineCount);
+    const levelOrder = LEVELS.findIndex(l => l.name === level.name);
     return {
       id: c.id, name: c.name, value: c.value, purchases: c.purchases,
       lines: Array.from(c.lines).sort(),
       lineCount, prevValue, mesesAtivos, inadimplente,
-      score, level: level.name, levelColor: level.color,
+      score: levelOrder, level: level.name, levelColor: level.color,
       nextLevel: nextLevel?.name ?? null, nextLevelColor: nextLevel?.color ?? null,
-      pointsToNext, progressPct,
+      pointsToNext: 0, progressPct: 100, hint,
     };
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a, b) => b.score - a.score || b.value - a.value);
 
   // Contar por nível
-  const levelCounts: Record<string, number> = { Bronze: 0, Silver: 0, Gold: 0, Platinum: 0, Diamante: 0 };
+  const levelCounts: Record<string, number> = { Bronze: 0, Silver: 0, Gold: 0, Platinum: 0 };
   for (const c of ranking) levelCounts[c.level] = (levelCounts[c.level] ?? 0) + 1;
 
   // Oportunidades
   const opportunities = ranking
-    .filter(c => c.lineCount < 3 || c.pointsToNext <= 15 || c.mesesAtivos < 2 || c.inadimplente)
+    .filter(c => c.level !== "Platinum" || c.inadimplente)
     .slice(0, 20)
     .map(c => {
       const actions: string[] = [];
@@ -245,7 +244,7 @@ export async function GET(req: NextRequest) {
       if (!c.lines.includes(2)) actions.push("Oferecer Peixes ornamentais");
       if (!c.lines.includes(3)) actions.push("Oferecer Microvida / plâncton");
       if (c.inadimplente) actions.push("⚠ Pendência financeira — acionar financeiro");
-      if (c.pointsToNext > 0 && c.pointsToNext <= 15) actions.push(`Faltam ${c.pointsToNext} pts para ${c.nextLevel}`);
+      if (c.hint) actions.push(`${c.hint} para ${c.nextLevel}`);
       return { ...c, actions };
     });
 

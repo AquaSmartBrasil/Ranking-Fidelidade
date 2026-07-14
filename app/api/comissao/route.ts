@@ -27,16 +27,11 @@ function calcScore(value: number, purchases: number, lineCount: number, inadimpl
   );
 }
 
-const LEVELS = [
-  { name: "Bronze",   min: 0,  max: 14 },
-  { name: "Silver",   min: 15, max: 19 },
-  { name: "Gold",     min: 20, max: 24 },
-  { name: "Platinum", min: 25, max: 29 },
-  { name: "Diamante", min: 30, max: Infinity },
-];
-
-function getLevel(score: number) {
-  return LEVELS.find(l => score >= l.min && score <= l.max)?.name ?? "Bronze";
+function getLevel(value: number, purchases: number, lineCount: number): string {
+  if (lineCount >= 3 && purchases > 2 && value > 5000) return "Platinum";
+  if (lineCount >= 3 && purchases > 2)                 return "Gold";
+  if (lineCount >= 3)                                  return "Silver";
+  return "Bronze";
 }
 
 export async function GET(req: NextRequest) {
@@ -177,8 +172,8 @@ export async function GET(req: NextRequest) {
   const bronzeUpgrades = new Map<string, number>(); // vendedorId → count
   for (const [cid, scoreMesData] of scoresMes) {
     const scoreAntData = scoresAnt.get(cid);
-    const nivelAnt = scoreAntData ? getLevel(calcScore(scoreAntData.value, scoreAntData.purchases, scoreAntData.lines.size || 1, scoreAntData.inadimplente)) : "Bronze";
-    const nivelMes = getLevel(calcScore(scoreMesData.value, scoreMesData.purchases, scoreMesData.lines.size || 1, scoreMesData.inadimplente));
+    const nivelAnt = scoreAntData ? getLevel(scoreAntData.value, scoreAntData.purchases, scoreAntData.lines.size || 1) : "Bronze";
+    const nivelMes = getLevel(scoreMesData.value, scoreMesData.purchases, scoreMesData.lines.size || 1);
     if (nivelAnt === "Bronze" && nivelMes !== "Bronze") {
       const vId = clienteVendedor.get(cid);
       if (vId) bronzeUpgrades.set(vId, (bronzeUpgrades.get(vId) ?? 0) + 1);

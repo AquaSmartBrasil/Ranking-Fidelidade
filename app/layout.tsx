@@ -17,17 +17,11 @@ export default function RootLayout({
         <nav className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="max-w-5xl mx-auto flex items-center gap-6">
             <span className="font-semibold text-blue-700">Conta Azul Dashboard</span>
-            <a href="/integrations" className="text-sm text-gray-600 hover:text-blue-700">
-              Integrações
-            </a>
-            <a href="/dashboard" className="text-sm text-gray-600 hover:text-blue-700">
-              Dashboard
-            </a>
-            <a href="/ranking" className="text-sm text-gray-600 hover:text-blue-700">
-              Ranking de Clientes
-            </a>
-            <a href="/metas" className="text-sm text-gray-600 hover:text-blue-700">
+            <a href="/metas" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
               Metas de Vendas
+            </a>
+            <a href="/ranking" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
+              Ranking
             </a>
             <a href="/resumo" className="text-sm text-gray-600 hover:text-blue-700">
               Resumo
@@ -37,6 +31,9 @@ export default function RootLayout({
             </a>
             <a href="/admin" className="text-sm text-gray-400 hover:text-blue-700 ml-auto">
               ⚙ Admin
+            </a>
+            <a href="/integrations" className="text-xs text-gray-400 hover:text-gray-600">
+              Integrações
             </a>
           </div>
         </nav>

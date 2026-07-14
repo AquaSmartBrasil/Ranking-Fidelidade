@@ -1,6 +1,50 @@
 "use client";
 import { useEffect, useState } from "react";
 
+function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setErro("");
+    const res = await fetch("/api/admin-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: senha }),
+    });
+    if (res.ok) { onSuccess(); }
+    else { setErro("Senha incorreta."); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <form onSubmit={submit} className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm w-full max-w-sm space-y-4">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Área Admin</h2>
+          <p className="text-sm text-gray-500 mt-1">Digite a senha para continuar</p>
+        </div>
+        <input
+          type="password"
+          value={senha}
+          onChange={e => setSenha(e.target.value)}
+          placeholder="Senha"
+          autoFocus
+          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {erro && <p className="text-sm text-red-500">{erro}</p>}
+        <button type="submit" disabled={loading}
+          className="w-full bg-blue-600 text-white rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          {loading ? "Verificando..." : "Entrar"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 type Goal = {
   id: string; vendedor_id: string; vendedor_nome: string;
   meta_mensal: number; meta_clientes: number; updated_at: string; excluido?: boolean;
@@ -42,7 +86,7 @@ CREATE TABLE IF NOT EXISTS company_goals (
   UNIQUE(company_id, ano)
 );`;
 
-export default function AdminPage() {
+function AdminContent() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [company, setCompany] = useState<CompanyData | null>(null);
   const [editing, setEditing] = useState<Record<string, string>>({});
@@ -605,4 +649,16 @@ export default function AdminPage() {
       )}
     </div>
   );
+}
+
+export default function AdminPage() {
+  const [autenticado, setAutenticado] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin-auth").then(r => r.json()).then(d => setAutenticado(d.ok));
+  }, []);
+
+  if (autenticado === null) return null;
+  if (!autenticado) return <AdminLogin onSuccess={() => setAutenticado(true)} />;
+  return <AdminContent />;
 }

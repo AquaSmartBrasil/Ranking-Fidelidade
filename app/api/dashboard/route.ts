@@ -58,6 +58,9 @@ export async function GET(req: NextRequest) {
   const customerMap = new Map<string, { name: string; total: number; count: number }>();
   const clientesUnicos = new Set<string>();
 
+  let semVendedor = 0;
+  let valorSemVendedor = 0;
+
   for (const s of salesAll ?? []) {
     // Gráfico mensal
     if (s.sale_date) {
@@ -68,7 +71,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Clientes únicos + ranking
-    const raw = s.raw_json as { cliente?: { id?: string; nome?: string } } | null;
+    const raw = s.raw_json as { cliente?: { id?: string; nome?: string }; vendedor?: { id?: string } } | null;
     const clienteId = raw?.cliente?.id;
     const clienteNome = raw?.cliente?.nome ?? "Sem nome";
     if (clienteId) {
@@ -76,6 +79,12 @@ export async function GET(req: NextRequest) {
       const c = customerMap.get(clienteId);
       if (c) { c.total += s.total_amount ?? 0; c.count += 1; }
       else customerMap.set(clienteId, { name: clienteNome, total: s.total_amount ?? 0, count: 1 });
+    }
+
+    // Sem vendedor
+    if (!raw?.vendedor?.id) {
+      semVendedor++;
+      valorSemVendedor += s.total_amount ?? 0;
     }
   }
 
@@ -93,5 +102,7 @@ export async function GET(req: NextRequest) {
     },
     salesByMonth,
     rankingClientes,
+    semVendedor,
+    valorSemVendedor: Math.round(valorSemVendedor),
   });
 }

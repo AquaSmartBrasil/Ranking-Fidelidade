@@ -68,6 +68,19 @@ export async function syncSales(
 
     if (items.length === 0) break;
 
+    // Preservar vendedor existente (busca não retorna vendedor)
+    const pageIds = items.map(s => String(s.id));
+    const { data: existing } = await supabaseAdmin
+      .from("sales")
+      .select("conta_azul_id, raw_json")
+      .eq("company_id", companyId)
+      .in("conta_azul_id", pageIds);
+    const existingVendedor = new Map<string, unknown>();
+    for (const e of existing ?? []) {
+      const v = (e.raw_json as Record<string, unknown> | null)?.vendedor;
+      if (v) existingVendedor.set(e.conta_azul_id, v);
+    }
+
     const seen = new Set<string>();
     const salesRows = items
       .filter((s) => {
@@ -79,17 +92,21 @@ export async function syncSales(
         if (status === "CANCELADO" || status === "ESPERANDO_APROVACAO" || status === "ORCAMENTO") return false;
         return true;
       })
-      .map((sale) => ({
-        company_id: companyId,
-        conta_azul_id: String(sale.id),
-        sale_date: sale.data ?? null,
-        status: sale.situacao?.nome ?? null,
-        total_amount: sale.total ?? null,
-        discount_amount: 0,
-        net_amount: sale.total ?? null,
-        raw_json: sale,
-        updated_at: new Date().toISOString(),
-      }));
+      .map((sale) => {
+        const vendedor = existingVendedor.get(String(sale.id));
+        const rawJson = vendedor ? { ...sale, vendedor } : sale;
+        return {
+          company_id: companyId,
+          conta_azul_id: String(sale.id),
+          sale_date: sale.data ?? null,
+          status: sale.situacao?.nome ?? null,
+          total_amount: sale.total ?? null,
+          discount_amount: 0,
+          net_amount: sale.total ?? null,
+          raw_json: rawJson,
+          updated_at: new Date().toISOString(),
+        };
+      });
 
     const { error } = await supabaseAdmin
       .from("sales")
