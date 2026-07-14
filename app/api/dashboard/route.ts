@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   // Agrupar por mês + contar clientes únicos + ranking — tudo em uma passagem
   const monthMap = new Map<string, { mes: string; total: number; count: number }>();
   const customerMap = new Map<string, { name: string; total: number; count: number }>();
-  const clientesUnicos = new Set<string>();
+  const clientesUnicosNomes = new Set<string>();
 
   let semVendedor = 0;
   let valorSemVendedor = 0;
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     const clienteId = raw?.cliente?.id;
     const clienteNome = raw?.cliente?.nome ?? "Sem nome";
     if (clienteId) {
-      clientesUnicos.add(clienteId);
+      clientesUnicosNomes.add((clienteNome).trim().toUpperCase());
       const c = customerMap.get(clienteId);
       if (c) { c.total += s.total_amount ?? 0; c.count += 1; }
       else customerMap.set(clienteId, { name: clienteNome, total: s.total_amount ?? 0, count: 1 });
@@ -89,7 +89,16 @@ export async function GET(req: NextRequest) {
   }
 
   const salesByMonth = Array.from(monthMap.values()).sort((a, b) => a.mes.localeCompare(b.mes));
-  const rankingClientes = Array.from(customerMap.values())
+
+  // Mesclar clientes com mesmo nome (cadastros duplicados no Conta Azul)
+  const byName = new Map<string, { name: string; total: number; count: number }>();
+  for (const c of customerMap.values()) {
+    const key = c.name.trim().toUpperCase();
+    const cur = byName.get(key);
+    if (cur) { cur.total += c.total; cur.count += c.count; }
+    else byName.set(key, { ...c });
+  }
+  const rankingClientes = Array.from(byName.values())
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
 
@@ -98,7 +107,7 @@ export async function GET(req: NextRequest) {
       totalVendas,
       receitaTotal,
       ticketMedio,
-      totalClientes: clientesUnicos.size,
+      totalClientes: clientesUnicosNomes.size,
     },
     salesByMonth,
     rankingClientes,
