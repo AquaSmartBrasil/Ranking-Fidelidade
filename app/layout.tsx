@@ -32,6 +32,9 @@ export default function RootLayout({
         <nav className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="max-w-5xl mx-auto flex items-center gap-6">
             <span className="font-semibold text-blue-700">Conta Azul Dashboard</span>
+            <a href="/missao" className="text-sm font-semibold text-orange-600 hover:text-orange-800">
+              ⚡ Missão do Dia
+            </a>
             <a href="/metas" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
               Metas de Vendas
             </a>

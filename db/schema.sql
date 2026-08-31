@@ -113,6 +113,26 @@ create table if not exists receivables (
   unique(company_id, conta_azul_id)
 );
 
+create table if not exists payables (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  conta_azul_id text not null,
+  supplier_id text null,
+  supplier_name text null,
+  due_date date null,
+  competence_date date null,
+  status text,
+  total_amount numeric,
+  paid_amount numeric,
+  unpaid_amount numeric,
+  category_id text null,
+  category_name text null,
+  raw_json jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(company_id, conta_azul_id)
+);
+
 create index if not exists idx_conta_azul_tokens_company_id on conta_azul_tokens(company_id);
 create index if not exists idx_sync_logs_company_id on sync_logs(company_id);
 create index if not exists idx_sync_state_company_resource on sync_state(company_id, resource);
@@ -122,3 +142,6 @@ create index if not exists idx_sales_company_id on sales(company_id);
 create index if not exists idx_sales_sale_date on sales(sale_date);
 create index if not exists idx_receivables_company_id on receivables(company_id);
 create index if not exists idx_receivables_due_date on receivables(due_date);
+create index if not exists idx_payables_company_id on payables(company_id);
+create index if not exists idx_payables_due_date on payables(due_date);
+create index if not exists idx_payables_category_id on payables(category_id);
