@@ -29,7 +29,7 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-function VendedorCard({ v, isGestor }: { v: Vendedor; isGestor: boolean }) {
+function VendedorCard({ v, isGestor, diasRestantes }: { v: Vendedor; isGestor: boolean; diasRestantes: number }) {
   const metaOk = v.pctDia !== null && v.pctDia >= 100;
   const reatiuOk = v.reativadosHoje >= v.reativacoesHoje;
 
@@ -81,7 +81,7 @@ function VendedorCard({ v, isGestor }: { v: Vendedor; isGestor: boolean }) {
           color={reatiuOk ? "bg-green-500" : "bg-purple-500"}
         />
         <p className="text-xs text-purple-600">
-          {v.totalInativos} clientes inativos na carteira · {data?.diasRestantes ?? 0} dias úteis restantes
+          {v.totalInativos} clientes inativos na carteira · {diasRestantes} dias úteis restantes
         </p>
       </div>
 
@@ -228,7 +228,7 @@ export default function MissaoPage() {
       {/* Cards de vendedores */}
       <div className={isGestor ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "max-w-xl"}>
         {vendedoresVisiveis.map(v => (
-          <VendedorCard key={v.id} v={v} isGestor={isGestor} />
+          <VendedorCard key={v.id} v={v} isGestor={isGestor} diasRestantes={data.diasRestantes} />
         ))}
       </div>
 
