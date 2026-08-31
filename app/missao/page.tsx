@@ -81,7 +81,7 @@ function VendedorCard({ v, isGestor }: { v: Vendedor; isGestor: boolean }) {
           color={reatiuOk ? "bg-green-500" : "bg-purple-500"}
         />
         <p className="text-xs text-purple-600">
-          {v.totalInativos} clientes inativos na carteira · {v.diasRestantes} dias úteis restantes
+          {v.totalInativos} clientes inativos na carteira · {data?.diasRestantes ?? 0} dias úteis restantes
         </p>
       </div>
 
