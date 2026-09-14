@@ -88,11 +88,9 @@ export async function syncSales(
         if (seen.has(s.id)) return false;
         seen.add(s.id);
         idsCA.add(String(s.id));
-        // Excluir orçamentos e cancelados
+        // Excluir apenas orçamentos (tipo)
         if (s.tipo === "SALE_PROPOSAL") return false;
-        const status = s.situacao?.nome ?? "";
-        if (status === "CANCELADO" || status === "ESPERANDO_APROVACAO" || status === "ORCAMENTO") return false;
-        return true;
+        return true; // salvar tudo, incluindo CANCELADO — o status fica correto no DB
       })
       .map((sale) => {
         const vendedor = existingVendedor.get(String(sale.id));

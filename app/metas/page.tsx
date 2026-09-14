@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { ClienteModal } from "@/app/components/ClienteModal";
 
 type Vendedor = {
   id: string; nome: string; totalClientes: number; clientesMes: number;
@@ -95,6 +96,7 @@ export default function MetasPage() {
   const [selectedCliente, setSelectedCliente] = useState<ClienteCarteira|null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingCarteira, setLoadingCarteira] = useState(false);
+  const [modalCliente, setModalCliente] = useState<{ id: string; nome: string } | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todos"|"ativos"|"inativos">("todos");
   const hoje = new Date(Date.now() - 3*60*60*1000);
@@ -176,6 +178,15 @@ export default function MetasPage() {
           }} className={`px-3 py-2 text-lg font-light transition-colors ${mesSel >= mesAtualYM ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-100"}`}>›</button>
         </div>
       </div>
+
+      {modalCliente && selectedVendedor && (
+        <ClienteModal
+          clienteId={modalCliente.id}
+          vendedorId={selectedVendedor.id}
+          nomeInicial={modalCliente.nome}
+          onClose={() => setModalCliente(null)}
+        />
+      )}
 
       {kpis && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -282,7 +293,15 @@ export default function MetasPage() {
                   <h3 className="font-bold text-gray-900 text-lg">{selectedCliente.nome}</h3>
                   <p className="text-sm text-gray-400">{selectedCliente.email}</p>
                 </div>
-                <button onClick={() => setSelectedCliente(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setModalCliente({ id: selectedCliente.id, nome: selectedCliente.nome })}
+                    className="text-xs font-semibold bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition-colors"
+                  >
+                    ✨ Pré-pedido
+                  </button>
+                  <button onClick={() => setSelectedCliente(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-4 mt-4">
                 <div>

@@ -38,6 +38,12 @@ export default function RootLayout({
             <a href="/metas" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
               Metas de Vendas
             </a>
+            <a href="/produtos" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
+              Meta de Produtos
+            </a>
+            <a href="/kpi" className="text-sm font-semibold text-purple-700 hover:text-purple-900">
+              📊 KPI
+            </a>
             <a href="/ranking" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
               Ranking
             </a>
